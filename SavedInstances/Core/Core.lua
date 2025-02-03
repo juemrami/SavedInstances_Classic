@@ -2038,9 +2038,9 @@ function SI:UpdateToonData()
   end
 
   -- update the random dunegon cooldowns (queue cooldown and deserter debuff)
-  playerData.LFG1 = SI:GetTimestampAfter(GetLFGRandomCooldownExpiration()) or playerData.LFG1
-  playerData.LFG2 = SI:GetTimestampAfter(SI:GetPlayerAuraExpirationTime(71041)) or playerData.LFG2 -- GetLFGDeserterExpiration()
-  playerData.pvpdesert = SI:GetTimestampAfter(SI:GetPlayerAuraExpirationTime(26013)) or playerData.pvpdesert
+  playerData.LFG1 = SI:SystemTimeToUnix(GetLFGRandomCooldownExpiration()) or playerData.LFG1
+  playerData.LFG2 = SI:SystemTimeToUnix(SI:GetPlayerAuraExpirationTime(71041)) or playerData.LFG2 -- GetLFGDeserterExpiration()
+  playerData.pvpdesert = SI:SystemTimeToUnix(SI:GetPlayerAuraExpirationTime(26013)) or playerData.pvpdesert
   
   -- if toon has either derserter (pve or pvp) add it to the spelltip cache
   if playerData.LFG2 then SI:updateSpellTip(71041) end

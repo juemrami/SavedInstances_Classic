@@ -12,18 +12,15 @@ local C_Calendar_GetMonthInfo = C_Calendar.GetMonthInfo
 local C_Calendar_SetAbsMonth = C_Calendar.SetAbsMonth
 local GetQuestResetTime = GetQuestResetTime
 
-do
-  --- Unix timestamp in seconds of the current time minus the player's computer system uptime.
-  --- When added to `GetTime()` result in a unix timestamp in seconds.
-  local gttOffset = time() - GetTime()
+-- Current unix time minus the users system uptime (seconds).
+local systemStartTimestamp = time() - GetTime();
 
-  --- Returns unix timestamp in seconds of the time after the passed `seconds` have elapsed.
-  ---@param elapsed number? A number of seconds from now.
-  ---@return number? timeToTime Unix timestamp in seconds of the future time minus the player's computer system uptime. nil if futureTime is nil.
-  function SI:GetTimestampAfter(elapsed)
-    if not elapsed then return end
-    return gttOffset + elapsed
-  end
+--- Converts from a system time values like `GetTime` to a unix timestamp values like `time`.
+---@param systemTime number?
+---@return number? timestamp
+function SI:SystemTimeToUnix(systemTime)
+  if not systemTime then return end
+  return systemStartTimestamp + systemTime
 end
 
 --- returns how many __hours__ the server time is ahead of local time.

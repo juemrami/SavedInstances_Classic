@@ -22,18 +22,21 @@ local C_TradeSkillUI_GetRecipeInfo = C_TradeSkillUI.GetRecipeInfo
 
 -- Helper for correcting C_Container.GetItemCooldown AFTER a system reboot
 -- src: https://github.com/Stanzilla/WoWUIBugs/issues/47#issuecomment-710698976
-local function getCastTimestamp(start)
-  -- Before restarting the GetTime() will always be greater than [start]
-  -- After the restart, [start] is technically always bigger because of the 2^32 offset thing
+---@param lastCast number system time when spell was last cast.
+local function getCastTimestamp(lastCast)
   local systemTime = GetTime()
-  if start < systemTime then
-      return SI:GetTimestampAfter(start)
+  -- note: `lastCast` times for spells put on cooldown BEFORE a system restart will-
+  -- be greater than the current value of `GetTime()`.
+  if lastCast < systemTime then
+    return SI:SystemTimeToUnix(lastCast)
   end
   local startupTime = time() - systemTime
-  -- just a simplification of: ((2^32) - (start * 1000)) / 1000
-  local cdTime = (2 ^ 32) / 1000 - start
-  local castTimestamp = startupTime - cdTime
-  return castTimestamp
+  -- To find the time of the lastCast based on the _current_ system time, subtract an epoch duration.
+  -- (We are assuming `GetTime` is based off a 32bit sized ms counter).
+  local currLastCast = lastCast - ((2 ^ 32) / 1000)
+  local castTimestamp = startupTime - ((2 ^ 32) / 1000 - lastCast)
+  assert(castTimestamp == SI:SystemTimeToUnix(currLastCast), "failed to match time fixes", castTimestamp, SI:SystemTimeToUnix(currLastCast))
+  return SI:SystemTimeToUnix(currLastCast)
 end
 
 if SI.isClassicEra then -- Era Compatibility

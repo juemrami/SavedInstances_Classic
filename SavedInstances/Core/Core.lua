@@ -1509,7 +1509,7 @@ function SI:UpdateInstanceData()
       dungeonInstanceKeys[dungeonID] = instanceKey
     end
   end
-  -- Season of Discovery specific 1 boss raids.
+  -- Season of Discovery specific instances.
   if SI.isSoD then
     local addInstance = function(spoofLfgID)
       local instanceKey, isNewInstance  = SI:UpsertInstanceByDungeonID(spoofLfgID)
@@ -1525,6 +1525,9 @@ function SI:UpdateInstanceData()
     addInstance(10001) -- Storm Cliffs - Azuregos
     addInstance(10002) -- Tainted Scar - Lord Kazzak
     addInstance(10003) -- Crystal Vale - Thunderaan
+    addInstance(10004) -- Karazhan Crypts
+    addInstance(10005) -- Scarlet Enclave
+    addInstance(10006) -- Nightmare Grove
   end
 
   --- Update the world boss data
@@ -1796,7 +1799,34 @@ function SI:UpsertInstanceByDungeonID(dungeonID)
     difficultyID = 9 -- 40m
     typeID = 2
     subtypeID = LFG_SUBTYPEID_RAID
+  elseif dungeonID == 10004 and SI.isSoD then -- 	Karazhan Crypts
+    local activityInfo = C_LFGList.GetActivityInfoTable(1693)
+    lfgName = activityInfo.shortName and activityInfo.shortName ~= "" and activityInfo.fullName or activityInfo.fullName
+    expansionLevel = 0
+    recLevel = 60
+    maxPlayers = 5
+    typeID = 1
+    subtypeID = LFG_SUBTYPEID_DUNGEON
+  elseif dungeonID == 10005 and SI.isSoD then -- Scarlet Enclave
+    local activityInfo = C_LFGList.GetActivityInfoTable(1710)
+    lfgName = activityInfo.shortName and activityInfo.shortName ~= "" and activityInfo.fullName or activityInfo.fullName
+    expansionLevel = 0
+    recLevel = 60
+    maxPlayers = 40
+    difficultyID = 9 -- 40m
+    typeID = 2
+    subtypeID = LFG_SUBTYPEID_RAID
+  elseif dungeonID == 10006 and SI.isSoD then -- Nightmare Grove
+    local activityInfo = C_LFGList.GetActivityInfoTable(1610)
+    lfgName = activityInfo.shortName and activityInfo.shortName ~= "" and activityInfo.fullName or activityInfo.fullName
+    expansionLevel = 0
+    recLevel = 60
+    maxPlayers = 40
+    difficultyID = 9 -- 40m
+    typeID = 2
+    subtypeID = LFG_SUBTYPEID_RAID
   end
+
   if subtypeID == LFG_SUBTYPEID_SCENARIO and typeID ~= TYPEID_RANDOM_DUNGEON then -- ignore non-random scenarios
     return nil, nil, true
   end

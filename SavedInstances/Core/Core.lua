@@ -66,28 +66,39 @@ local GetSavedInstanceInfo, GetNumSavedInstances, GetSavedInstanceChatLink, GetL
 local C_QuestLog_GetTitleForQuestID = C_QuestLog.GetTitleForQuestID 
   or C_QuestLog.GetQuestInfo -- wotkl/era function equivalent
 
--- compatibility for missing Spec API functionality. 
+-- todo: refactor this spec api mess
+-- compatibility for missing Spec API functionality.
 local GetNumSpecializations = GetNumSpecializations
 local GetSpecializationInfo = GetSpecializationInfo
 local GetSpecializationInfoForSpecID = GetSpecializationInfoForSpecID
+
 if not (GetNumSpecializations and GetSpecializationInfo and GetSpecializationInfoForSpecID) then
-  ---Get number of player specs
-  ---@type fun():number
-  GetNumSpecializations = GetNumTalentTabs
+  if SI.isClassicEra then
+      ---Get number of player specs
+      ---@type fun():number
+      GetNumSpecializations = GetNumTalentTabs
 
-  ---Gets spec info for a spec tab index
-  ---@param idx number
-  ---@return number idx Same as passed arg
-  ---@return string? name
-  ---@return string? icon
-  GetSpecializationInfoForSpecID = function(idx)
-    local name, textureID = GetTalentTabInfo(idx) ---@type string?, string?
-    return idx, name, textureID
-  end
+      ---Gets spec info for a spec tab index
+      ---@param idx number
+      ---@return number idx Same as passed arg
+      ---@return string? name
+      ---@return string? icon
+      GetSpecializationInfoForSpecID = function(idx)
+        local name, textureID = GetTalentTabInfo(idx) ---@type string?, string?
+        return idx, name, textureID
+      end
 
-  -- Since wotlk has no specID's
-  -- We treat the spec tab index and the specID as the same.
-  GetSpecializationInfo = GetSpecializationInfoForSpecID
+      -- Since wotlk has no specID's
+      -- We treat the spec tab index and the specID as the same.
+      GetSpecializationInfo = GetSpecializationInfoForSpecID
+    else -- Mist of Pandaria api compatibility
+      local _,_,classID = UnitClass("player")
+      GetNumSpecializations = function() return C_SpecializationInfo.GetNumSpecializationsForClassID(classID) end
+      ---@type fun(idx: number): number, string?, string?
+      GetSpecializationInfoForSpecID = function(specID) return GetSpecializationInfoForClassID(classID, specID) end
+      ---@type fun(idx: number): number, string?, string?
+      GetSpecializationInfo = GetSpecializationInfoForSpecID
+    end
 end
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local FONTEND = FONT_COLOR_CODE_CLOSE or "\124r"

@@ -10,7 +10,7 @@ local _G = _G
 -- WoW API / Variables
 local C_Map_GetMapInfo = C_Map.GetMapInfo
 local GetAchievementCriteriaInfo = GetAchievementCriteriaInfo
-local GetItemInfo = GetItemInfo
+local GetItemInfo = GetItemInfo or C_Item.GetItemInfo
 local GetSpellInfo = GetSpellInfo
 local LOOT = LOOT
 

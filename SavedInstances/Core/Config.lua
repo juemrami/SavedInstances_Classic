@@ -1154,39 +1154,39 @@ function Config:BuildAceConfigOptions()
       }
     end  
   end
-
-  local currencyOptions = savedOptions.args.Currency.args
-  local headerOffset = currencyOptions.CurrencyHeader.order
-  for idx, currencyID in ipairs(SI.validCurrencies) do
-    local category = SI.currencyCategories[currencyID]
-    local categoryHeader = category and currencyOptions["CurrencyCategory"..category]
-    if category and not categoryHeader then -- only classic era currencies had these headers to visually split currencies up.
-      categoryHeader = {
+  local currencyOptionsTable = savedOptions.args.Currency.args
+  local headerOffset = currencyOptionsTable.CurrencyHeader.order
+  local optionOrderIdx = 0
+  for _, category in Currency:IterateCategories() do
+    local categoryName = category.name
+    if categoryName then
+      optionOrderIdx = optionOrderIdx + 1
+      currencyOptionsTable["CurrencyCategory" .. categoryName] = {
         type = "header",
-        order = headerOffset+idx,
-        name = category,
+        order = headerOffset + optionOrderIdx,
+        name = categoryName,
       }
-      currencyOptions["CurrencyCategory"..category] = categoryHeader
     end
-
-    local name
-    local icon ---@type string|number?
-    if SI.isClassicEra then
-      icon = GetItemIcon(currencyID)
-      name = GetItemInfo(currencyID) or ("Item: "..currencyID)
-    else
-      local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
-      name = Currency.OverrideName[currencyID] or data.name
-      icon = Currency.OverrideTexture[currencyID] or data.iconFileID
-    end
-
-    if name and icon then
-      icon = "\124T"..icon..":13:13:0:-1:64:64:10:54:10:54\124t "
-      currencyOptions["Currency"..currencyID] = {
-        type = "toggle",
-        order = headerOffset+idx,
-        name = icon..name,
-      }
+    for _, currencyID in ipairs(category.currencies) do
+      local name
+      local icon ---@type string|number?
+      if not Currency.IsUsingCurrencyAPI then
+        icon = GetItemIcon(currencyID)
+        name = GetItemInfo(currencyID) or ("Item: "..currencyID)
+      else
+        local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
+        name = Currency.OverrideName[currencyID] or data.name
+        icon = Currency.OverrideTexture[currencyID] or data.iconFileID
+      end
+      if name and icon then
+        optionOrderIdx = optionOrderIdx + 1
+        icon = "\124T"..icon..":13:13:0:-1:64:64:10:54:10:54\124t "
+        currencyOptionsTable["Currency"..currencyID] = {
+          type = "toggle",
+          order = headerOffset + optionOrderIdx,
+          name = icon..name,
+        }
+      end
     end
   end
   return savedOptions

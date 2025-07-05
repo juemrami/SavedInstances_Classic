@@ -34,8 +34,6 @@ local function getCastTimestamp(lastCast)
   -- To find the time of the lastCast based on the _current_ system time, subtract an epoch duration.
   -- (We are assuming `GetTime` is based off a 32bit sized ms counter).
   local currLastCast = lastCast - ((2 ^ 32) / 1000)
-  local castTimestamp = startupTime - ((2 ^ 32) / 1000 - lastCast)
-  assert(castTimestamp == SI:SystemTimeToUnix(currLastCast), "failed to match time fixes", castTimestamp, SI:SystemTimeToUnix(currLastCast))
   return SI:SystemTimeToUnix(currLastCast)
 end
 

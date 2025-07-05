@@ -3,6 +3,9 @@ local SI, L = unpack((select(2, ...)))
 
 ---@class CurrencyModule : AceModule , AceEvent-3.0, AceTimer-3.0, AceBucket-3.0
 local Module = SI:NewModule('Currency', 'AceEvent-3.0', 'AceTimer-3.0', 'AceBucket-3.0')
+local Expansion = SI.Enum.Expansion
+
+Module.IsUsingCurrencyAPI = Expansion.Current >= Expansion.Wrath
 
 -- Lua functions
 local ipairs, pairs = ipairs, pairs
@@ -13,8 +16,8 @@ local C_CurrencyInfo_GetCurrencyInfo = C_CurrencyInfo.GetCurrencyInfo
 local C_QuestLog_IsQuestFlaggedCompleted = C_QuestLog.IsQuestFlaggedCompleted
 local GetItemCount = GetItemCount
 local GetMoney = GetMoney
-
-local allCurrencies = {
+-- Unused, kept for documentation purposes. only supporting classic clients now.
+local retailCurrencies = {
   81, -- Epicurean Award
   515, -- Darkmoon Prize Ticket
   2588, -- Riders of Azeroth Badge
@@ -155,184 +158,232 @@ local allCurrencies = {
   3010, -- 10.2.6 Rewards - Personal Tracker - S4 Dinar Drops (Hidden)
 }
 
-local cataclysmCurrencies = {
-  -- Misc
+-- ordered list of currency categories
+-- order here is used for the category display order in the currency settings
+local orderedCategories = {
+  -- Misc.
   BINDING_HEADER_MISC,
-  515, -- Darkmoon Prize Ticket
   -- PvP
   PLAYER_V_PLAYER,
-  -- 1900, -- Arena Points
-  1901, -- Honor Points
-  390, -- Conquest Points
-
-  
   -- Wrath of the Lich King
   EXPANSION_NAME2,
-  61, -- Dalaran Jewelcrafter's Token
-  81, -- Epicurean Award
-  101, -- Emblem of Heroism
-  102, -- Emblem of Valor
-  126, -- Wintergrasp Mark of Honor
-  161, -- Stone Keeper's Shard
-  201, -- Venture Coin
-  221, -- Emblem of Conquest
-  241, -- Champion's Seal
-  301, -- Emblem of Triumph
-  341, -- Emblem of Frost
-  2711, -- Defiler's Scourgestone
-  2589, -- Sidereal Essence
-  
   -- Cataclysm
-  EXPANSION_NAME3, 
-  361, -- Illustrious Jewelcrafter's Token
-  391, -- Tol Barad Commendation
-  395, -- Justice Points
-  396, -- Valor Points
-  402, -- Chef's Award
-  416, -- Mark of the World Tree
-  614, -- Mote of Darkness
-  615, -- Essence of Corrupted Deathwing
-  
+  EXPANSION_NAME3,
+  -- Mists of Pandaria
+  EXPANSION_NAME4,
   -- Archaeology
   PROFESSIONS_ARCHAEOLOGY,
-  384, -- Dwarf Archaeology Fragment
-  385, -- Troll Archaeology Fragment
-  397, -- Orc Archaeology Fragment
-  398, -- Draenei Archaeology Fragment
-  399, -- Vrykul Archaeology Fragment
-  400, -- Nerubian Archaeology Fragment
-  401, -- Tol'vir Archaeology Fragment
+}
+-- currencies used on/after wrath of the lich king
+local modernClassicCurrencies = {
+  -- Misc
+  [BINDING_HEADER_MISC] = {
+    515, -- Darkmoon Prize Ticket
+  },
+  -- PvP
+  [PLAYER_V_PLAYER] = {
+    -- 1900, -- Arena Points
+    1901, -- Honor Points
+    390, -- Conquest Points
+  } ,
+  -- Wrath of the Lich King
+  [EXPANSION_NAME2] = Expansion.Current >= Expansion.Wrath and {
+    61, -- Dalaran Jewelcrafter's Token
+    81, -- Epicurean Award
+    101, -- Emblem of Heroism
+    102, -- Emblem of Valor
+    126, -- Wintergrasp Mark of Honor
+    161, -- Stone Keeper's Shard
+    201, -- Venture Coin
+    221, -- Emblem of Conquest
+    241, -- Champion's Seal
+    301, -- Emblem of Triumph
+    341, -- Emblem of Frost
+    2711, -- Defiler's Scourgestone
+    2589, -- Sidereal Essence
+  } or nil,
+  -- Cataclysm
+  [EXPANSION_NAME3] = Expansion.Current >= Expansion.Cata and {
+    361, -- Illustrious Jewelcrafter's Token
+    391, -- Tol Barad Commendation
+    395, -- Justice Points
+    396, -- Valor Points
+    402, -- Chef's Award
+    416, -- Mark of the World Tree
+    614, -- Mote of Darkness
+    615, -- Essence of Corrupted Deathwing
+    3148, -- Fissure Stone Fragment
+    3281, -- Obsidian Fragment
+  },
+  -- Mists of Pandaria
+  [EXPANSION_NAME4] = Expansion.Current >= Expansion.Mists and {
+    402, -- Ironpaw Token
+    697, -- Elder Charm of Good Fortune
+    698, -- Zen Jewelcrafter's Token
+    738, -- Lesser Charm of Good Fortune
+    752, -- Mogu Rune of Fate
+    776, -- Warforged Seal
+    777, -- Timeless Coin
+    789, -- Bloody Coin
+  } or nil,
+  -- Archaeology
+  [PROFESSIONS_ARCHAEOLOGY] = Expansion.Current >= Expansion.Cata and {
+    -- cataclysm
+    384, -- Dwarf Archaeology Fragment
+    385, -- Troll Archaeology Fragment
+    397, -- Orc Archaeology Fragment
+    398, -- Draenei Archaeology Fragment
+    399, -- Vrykul Archaeology Fragment
+    400, -- Nerubian Archaeology Fragment
+    401, -- Tol'vir Archaeology Fragment
+    -- mists of pandaria
+    676, -- Pandaren Archaeology Fragment
+    677, -- Mogu Archaeology Fragment
+    754, -- Mantid Archaeology Fragment
+  } or nil,
 }
 --- There is no designated currency api in classic. Any "currency" is just a bag item.
 -- list of category names followed by currencyIds for that category
----@type (string|number)[]
-local classicCurrencies = {
+local classicEraCurrencies = {
   -- Misc
-  BINDING_HEADER_MISC,
-  (SI.isSoD and 212160 or 184937), -- Chronoboon Displacer (SoD/Era specific)
-  (SI.isSoD and 226404 or 0), -- Tarnished Undermine Real (SoD currency)
-
+  [BINDING_HEADER_MISC] = {
+    (SI.isSoD and 212160 or 184937), -- Chronoboon Displacer (SoD/Era specific)
+    (SI.isSoD and 226404 or nil), -- Tarnished Undermine Real (SoD currency)
+  },
   -- Holiday Currency
-  CALENDAR_FILTER_WEEKLY_HOLIDAYS,
-  19182, -- Darkmoon Faire Prize Ticket
-  21100, -- Coin of Ancestry
-
+  [CALENDAR_FILTER_WEEKLY_HOLIDAYS] = {
+    19182, -- Darkmoon Faire Prize Ticket
+    21100, -- Coin of Ancestry
+  },
   -- ZG Coins+Bijous
-  DUNGEON_FLOOR_ZULGURUB1,
-  19698, -- Zulian Coin
-  19699, -- Razzashi Coin
-  19700, -- Hakkari Coin
-  19701, -- Gurubashi Coin
-  19702, -- Vilebranch Coin
-  19703, -- Witherbark Coin
-  19704, -- Sandfury Coin
-  19705, -- Skullsplitter Coin
-  19706, -- Bloodscalp Coin
-  19707, -- Red Hakkari Bijou
-  19708, -- Blue Hakkari Bijou
-  19709, -- Yellow Hakkari Bijou
-  19710, -- Orange Hakkari Bijou
-  19711, -- Green Hakkari Bijou
-  19712, -- Purple Hakkari Bijou
-  19713, -- Bronze Hakkari Bijou
-  19714, -- Silver Hakkari Bijou
-  19715, -- Gold Hakkari Bijou
-
+  [DUNGEON_FLOOR_ZULGURUB1] = {
+    19698, -- Zulian Coin
+    19699, -- Razzashi Coin
+    19700, -- Hakkari Coin
+    19701, -- Gurubashi Coin
+    19702, -- Vilebranch Coin
+    19703, -- Witherbark Coin
+    19704, -- Sandfury Coin
+    19705, -- Skullsplitter Coin
+    19706, -- Bloodscalp Coin
+    19707, -- Red Hakkari Bijou
+    19708, -- Blue Hakkari Bijou
+    19709, -- Yellow Hakkari Bijou
+    19710, -- Orange Hakkari Bijou
+    19711, -- Green Hakkari Bijou
+    19712, -- Purple Hakkari Bijou
+    19713, -- Bronze Hakkari Bijou
+    19714, -- Silver Hakkari Bijou
+    19715, -- Gold Hakkari Bijou
+  },
+  -- Battleground Rewards
+  [BATTLEFIELDS] = {
+    -- 19322, -- Warsong Mark of Honor (DEPRECATED) https://www.wowhead.com/classic/item=19322
+    20558, -- Warsong Gulch Mark of Honor
+    20559, -- Arathi Basin Mark of Honor
+    20560, -- Alterac Valley Mark of Honor
+  },
+  -- AQ Scarabs + Idols
+  [DUNGEON_FLOOR_RUINSOFAHNQIRAJ1] = {
+    20858, -- Stone Scarab
+    20859, -- Gold Scarab
+    20860, -- Silver Scarab
+    20861, -- Bronze Scarab
+    20862, -- Crystal Scarab
+    20863, -- Clay Scarab
+    20864, -- Bone Scarab
+    20865, -- Ivory Scarab
+    20866, -- Azure Idol
+    20867, -- Onyx Idol
+    20868, -- Lambent Idol
+    20869, -- Amber Idol
+    20870, -- Jasper Idol
+    20871, -- Obsidian Idol
+    20872, -- Vermillion Idol
+    20873, -- Alabaster Idol
+    20874, -- Idol of the Sun
+    20875, -- Idol of Night
+    20876, -- Idol of Death
+    20877, -- Idol of the Sage
+    20878, -- Idol of Rebirth
+    20879, -- Idol of Life
+    20881, -- Idol of Strife
+    20882, -- Idol of War
+  },
+  -- Naxx Gear Reagents
+  [L["Naxxramas"]] = {
+    22373, -- Wartorn Leather Scrap
+    22374, -- Wartorn Chain Scrap
+    22375, -- Wartorn Plate Scrap
+    22376, -- Wartorn Cloth Scrap
+  },
+  -- Argent Dawn Related
+  [L["Argent Dawn"]] = {
+    12840, -- Minion's Scourgestone
+    12841, -- Invader's Scourgestone
+    12843, -- Corruptor's Scourgestone
+    12844, -- Argent Dawn Valor Token
+    22523, -- Insignia of the Dawn
+    22524, -- Insignia of the Crusade
+  },
+  -- Silithus Quests
+  [L["Silithus"]] = {
+    20800, -- Cenarion Logistics Badge
+    20801, -- Cenarion Tactical Badge
+    20802, -- Cenarion Combat Badge
+  },
+  -- MC
+  [DUNGEON_FLOOR_MOLTENCORE1] = {
+    17333, -- Aqual Quintessence
+    22754, -- Eternal Quintessence
+  },
+}
+local classicEraCategories = {
+  -- Misc.
+  BINDING_HEADER_MISC,
+  -- Holiday Currencies
+  CALENDAR_FILTER_WEEKLY_HOLIDAYS,
   -- Battleground Rewards
   BATTLEFIELDS,
-  -- 19322, -- Warsong Mark of Honor (DEPRECATED) https://www.wowhead.com/classic/item=19322
-  20558, -- Warsong Gulch Mark of Honor
-  20559, -- Arathi Basin Mark of Honor
-  20560, -- Alterac Valley Mark of Honor
-
+  -- Molten core currencies
+  DUNGEON_FLOOR_MOLTENCORE1,
+  -- ZG Coins + Bijous
+  DUNGEON_FLOOR_ZULGURUB1,
   -- AQ Scarabs + Idols
   DUNGEON_FLOOR_RUINSOFAHNQIRAJ1,
-  20858, -- Stone Scarab
-  20859, -- Gold Scarab
-  20860, -- Silver Scarab
-  20861, -- Bronze Scarab
-  20862, -- Crystal Scarab
-  20863, -- Clay Scarab
-  20864, -- Bone Scarab
-  20865, -- Ivory Scarab
-  20866, -- Azure Idol
-  20867, -- Onyx Idol
-  20868, -- Lambent Idol
-  20869, -- Amber Idol
-  20870, -- Jasper Idol
-  20871, -- Obsidian Idol
-  20872, -- Vermillion Idol
-  20873, -- Alabaster Idol
-  20874, -- Idol of the Sun
-  20875, -- Idol of Night
-  20876, -- Idol of Death
-  20877, -- Idol of the Sage
-  20878, -- Idol of Rebirth
-  20879, -- Idol of Life
-  20881, -- Idol of Strife
-  20882, -- Idol of War
-
   -- Naxx Gear Reagents
   L["Naxxramas"],
-  22373, -- Wartorn Leather Scrap
-  22374, -- Wartorn Chain Scrap
-  22375, -- Wartorn Plate Scrap
-  22376, -- Wartorn Cloth Scrap
-
   -- Argent Dawn Related
   L["Argent Dawn"],
-  12840, -- Minion's Scourgestone
-  12841, -- Invader's Scourgestone
-  12843, -- Corruptor's Scourgestone
-  12844, -- Argent Dawn Valor Token
-  22523, -- Insignia of the Dawn
-  22524, -- Insignia of the Crusade
-
   -- Silithus Quests
   L["Silithus"],
-  20800, -- Cenarion Logistics Badge
-  20801, -- Cenarion Tactical Badge
-  20802, -- Cenarion Combat Badge
-
-  -- MC
-  DUNGEON_FLOOR_MOLTENCORE1,
-  17333, -- Aqual Quintessence
-  22754, -- Eternal Quintessence
 }
 --Todo(classic): Scan tooltip for unique count and saved a copy of the tooltip for each currency to show on mouseover for the currency cell in the main addon frame
 
-SI.currency = allCurrencies
-
-local currencySorted = {}
-local validCurrencies = {}
-local currencyCategories = {}
-if not SI.isRetail then
-  local currencies = SI.isClassicEra and classicCurrencies or cataclysmCurrencies;
-  SI:Debug("Classic Era detected using classicCurrencies")
-  local lastCategory
-  for _, currencyID in ipairs(currencies) do
-    if type (currencyID) == "string" then
-      lastCategory = currencyID
-    elseif currencyID ~= 0 then
-      if (SI.isClassicEra) or C_CurrencyInfo_GetCurrencyInfo(currencyID) then
-        table.insert(validCurrencies, currencyID)
-        -- table.insert(allCurrencies, currencyID
-        table.insert(currencySorted, currencyID)
-        currencyCategories[currencyID] = lastCategory
-      end
+local currencySorted = {} ---@type number[]
+local validCurrencies = {} ---@type number[]
+local categoryByCurrencyID = {}
+if not Module.IsUsingCurrencyAPI then
+  for categoryName, currencyItemIDs in ipairs(classicEraCurrencies) do
+    for _, currencyID in ipairs(currencyItemIDs) do
+      table.insert(validCurrencies, currencyID)
+      table.insert(currencySorted, currencyID)
+      categoryByCurrencyID[currencyID] = categoryName
     end
   end
-else -- retail
-  for _, currencyID in ipairs(allCurrencies) do
-    -- check for nil currencies 
-    if C_CurrencyInfo_GetCurrencyInfo(currencyID) then
-      table.insert(currencySorted, currencyID)
-      table.insert(validCurrencies, currencyID)
+else
+  for category, currencyIDS in pairs(modernClassicCurrencies) do
+    for _, currencyID in ipairs(currencyIDS) do
+      if C_CurrencyInfo_GetCurrencyInfo(currencyID) then
+        table.insert(validCurrencies, currencyID)
+        table.insert(currencySorted, currencyID)
+        categoryByCurrencyID[currencyID] = category
+      end
     end
   end
 end
 table.sort(currencySorted, function (c1, c2)
-  if SI.isClassicEra then
+  if not Module.IsUsingCurrencyAPI then
     local c1_name = GetItemInfo(c1) or tostring(c1)
     local c2_name = GetItemInfo(c2) or tostring(c2)
     return c1_name < c2_name
@@ -341,9 +392,6 @@ table.sort(currencySorted, function (c1, c2)
   local c2_name = C_CurrencyInfo_GetCurrencyInfo(c2).name
   return c1_name < c2_name
 end)
-SI.currencySorted = currencySorted
-SI.validCurrencies = validCurrencies
-SI.currencyCategories = currencyCategories
 
 local hiddenCurrency = {}
 
@@ -405,6 +453,7 @@ local specialCurrencies = {
     }, -- Vessel of Horrific Visions
   },
 }
+--- used for certain retail currencies with special properties not obtainable through APIs
 SI.specialCurrency = specialCurrencies
 
 --- add any quests related to special currencies to the QuestExceptions table
@@ -448,73 +497,76 @@ function Module:UpdatePlayerCurrencies()
   playerStore.Money = GetMoney()
   playerStore.currency = playerStore.currency or {}
 
-  local covenantID = C_Covenants_GetActiveCovenantID and C_Covenants_GetActiveCovenantID()
-  for _,currencyID in ipairs(allCurrencies) do
-    local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
-    if not data or (not data.discovered and not hiddenCurrency[currencyID]) then
-      playerStore.currency[currencyID] = nil
-    else
-      local currencyInfo = playerStore.currency[currencyID] or {}
-      currencyInfo.amount = data.quantity
-      currencyInfo.totalMax = data.maxQuantity
-      currencyInfo.earnedThisWeek = data.quantityEarnedThisWeek
-      currencyInfo.weeklyMax = data.maxWeeklyQuantity
-      if data.useTotalEarnedForMaxQty then
-        currencyInfo.totalEarned = data.totalEarned
-      end
-      -- handle special currency
-      if specialCurrencies[currencyID] then
-        local tbl = specialCurrencies[currencyID]
-        if tbl.weeklyMax then currencyInfo.weeklyMax = tbl.weeklyMax end
-        if tbl.earnByQuest then
-          currencyInfo.earnedThisWeek = 0
-          for _, questID in ipairs(tbl.earnByQuest) do
-            if C_QuestLog_IsQuestFlaggedCompleted(questID) then
-              currencyInfo.earnedThisWeek = currencyInfo.earnedThisWeek + 1
-            end
-          end
-        end
-        if tbl.relatedItem then
-      currencyInfo.relatedItemCount = GetItemCount(tbl.relatedItem.id)
-     end
-      elseif covenantID and currencyID == 1822 then -- Renown
-        -- plus one to amount and totalMax
-        currencyInfo.amount = currencyInfo.amount + 1
-        currencyInfo.totalMax = currencyInfo.totalMax + 1
-        if covenantID > 0 then
-          ---@diagnostic disable-next-line: inject-field
-          currencyInfo.covenant = currencyInfo.covenant or {}
-          currencyInfo.covenant[covenantID] = currencyInfo.amount
-        end
-      elseif covenantID and (currencyID == 1810 or currencyID == 1813) then -- Redeemed Soul and Reservoir Anima
-        if covenantID > 0 then
-          ---@diagnostic disable-next-line: inject-field
-          currencyInfo.covenant = currencyInfo.covenant or {}
-          currencyInfo.covenant[covenantID] = currencyInfo.amount
-        end
-      elseif currencyID == 2800 then -- 10.2.6 Professions - Personal Tracker - S4 Spark Drops (Hidden)
-        local duration = SI:GetNextWeeklyResetTime() - 1713276000 -- 2024-04-16T14:00:00+00:00
-        currencyInfo.totalMax = floor(duration / 604800) -- 7 days
-      elseif currencyID == 3010 then -- 10.2.6 Rewards - Personal Tracker - S4 Dinar Drops (Hidden)
-        local duration = SI:GetNextWeeklyResetTime() - 1713880800 -- 2024-04-23T14:00:00+00:00
-        currencyInfo.totalMax = floor(duration / 604800) -- 7 days
-      end
-      -- don't store useless info
-      if currencyInfo.weeklyMax == 0 then currencyInfo.weeklyMax = nil end
-      if currencyInfo.totalMax == 0 then currencyInfo.totalMax = nil end
-      if currencyInfo.earnedThisWeek == 0 then currencyInfo.earnedThisWeek = nil end
-      if currencyInfo.totalEarned == 0 then currencyInfo.totalEarned = nil end
-      playerStore.currency[currencyID] = currencyInfo
-    end
-  end
-
-  if SI.isClassicEra then 
+  if not Module.IsUsingCurrencyAPI then
     for _, currencyItemID in ipairs(validCurrencies) do
       ---@type SavedInstances.Toon.Currency
       local currencyInfo = playerStore.currency[currencyItemID] or {}
       currencyInfo.amount = GetItemCount(currencyItemID, true)
       currencyInfo.relatedItemCount = GetItemCount(currencyItemID, true)
       playerStore.currency[currencyItemID] = currencyInfo
+    end
+  else
+    local covenantID = C_Covenants_GetActiveCovenantID and C_Covenants_GetActiveCovenantID()
+    for _,currencyID in ipairs(validCurrencies) do
+      local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
+      if not data
+      or (not data.discovered and not hiddenCurrency[currencyID])
+      then
+        playerStore.currency[currencyID] = nil
+      else
+        local currencyInfo = playerStore.currency[currencyID] or {}
+        currencyInfo.amount = data.quantity
+        currencyInfo.totalMax = data.maxQuantity
+        currencyInfo.earnedThisWeek = data.quantityEarnedThisWeek
+        currencyInfo.weeklyMax = data.maxWeeklyQuantity
+        if data.useTotalEarnedForMaxQty then
+          currencyInfo.totalEarned = data.totalEarned
+        end
+        -- handle special currency
+        if specialCurrencies[currencyID] then
+          local tbl = specialCurrencies[currencyID]
+          if tbl.weeklyMax then currencyInfo.weeklyMax = tbl.weeklyMax end
+          if tbl.earnByQuest then
+            currencyInfo.earnedThisWeek = 0
+            for _, questID in ipairs(tbl.earnByQuest) do
+              if C_QuestLog_IsQuestFlaggedCompleted(questID) then
+                currencyInfo.earnedThisWeek = currencyInfo.earnedThisWeek + 1
+              end
+            end
+          end
+          if tbl.relatedItem then
+            currencyInfo.relatedItemCount = GetItemCount(tbl.relatedItem.id)
+          end
+        -- todo: remove, keeping around for reference
+        -- elseif covenantID and currencyID == 1822 then -- Renown
+        --   -- plus one to amount and totalMax
+        --   currencyInfo.amount = currencyInfo.amount + 1
+        --   currencyInfo.totalMax = currencyInfo.totalMax + 1
+        --   if covenantID > 0 then
+        --     ---@diagnostic disable-next-line: inject-field
+        --     currencyInfo.covenant = currencyInfo.covenant or {}
+        --     currencyInfo.covenant[covenantID] = currencyInfo.amount
+        --   end
+        -- elseif covenantID and (currencyID == 1810 or currencyID == 1813) then -- Redeemed Soul and Reservoir Anima
+        --   if covenantID > 0 then
+        --     ---@diagnostic disable-next-line: inject-field
+        --     currencyInfo.covenant = currencyInfo.covenant or {}
+        --     currencyInfo.covenant[covenantID] = currencyInfo.amount
+        --   end
+        -- elseif currencyID == 2800 then -- 10.2.6 Professions - Personal Tracker - S4 Spark Drops (Hidden)
+        --   local duration = SI:GetNextWeeklyResetTime() - 1713276000 -- 2024-04-16T14:00:00+00:00
+        --   currencyInfo.totalMax = floor(duration / 604800) -- 7 days
+        -- elseif currencyID == 3010 then -- 10.2.6 Rewards - Personal Tracker - S4 Dinar Drops (Hidden)
+        --   local duration = SI:GetNextWeeklyResetTime() - 1713880800 -- 2024-04-23T14:00:00+00:00
+        --   currencyInfo.totalMax = floor(duration / 604800) -- 7 days
+        end
+        -- don't store useless info
+        if currencyInfo.weeklyMax == 0 then currencyInfo.weeklyMax = nil end
+        if currencyInfo.totalMax == 0 then currencyInfo.totalMax = nil end
+        if currencyInfo.earnedThisWeek == 0 then currencyInfo.earnedThisWeek = nil end
+        if currencyInfo.totalEarned == 0 then currencyInfo.totalEarned = nil end
+        playerStore.currency[currencyID] = currencyInfo
+      end
     end
   end
 end
@@ -537,6 +589,19 @@ function Module:UpdateCurrencyItem()
     end
   end
 end
+---@param sorted boolean? If `true`, returns currency list sorted by name
+---@return number[]
+function Module:GetCurrencyList(sorted)
+  if sorted then return currencySorted end
+  return validCurrencies
+end
+
+---@param currencyID integer
+---@return string? categoryName display string for the currency's category
+function Module:GetCurrencyCategory(currencyID)
+  if not currencyID then return end
+  return categoryByCurrencyID[currencyID]
+end
 
 ---@param itemID integer?
 ---@return table<integer, {text: string, font: FontObject, color: {}}>?
@@ -557,4 +622,23 @@ function Module:ParseCurrencyItemTooltip(itemID)
   return tooltipInfo
 end
 
+---@return fun():integer?, {name: string, currencies: number[]}?
+function Module:IterateCategories()
+  local i = 0
+  local categoryInfo = {}
+  local currencyTable = Module.IsUsingCurrencyAPI and modernClassicCurrencies or classicEraCurrencies
+  local orderedCategories = Module.IsUsingCurrencyAPI and orderedCategories or classicEraCategories
+  return function()
+    i = i + 1
+    if i > #orderedCategories then
+      return nil
+    end
+    local categoryName = orderedCategories[i];
+    categoryInfo = {
+      name = categoryName,
+      currencies = currencyTable[categoryName],
+    }
+    return i, categoryInfo
+  end
+end
 

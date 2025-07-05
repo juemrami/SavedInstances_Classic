@@ -10,9 +10,7 @@
 
 
 ---@class SavedInstances: AceEvent-3.0, Frame
----@field validCurrencies number[]
 ---@field specialCurrency table<number, {weeklyMax: number?, earnByQuest: number[], relatedItem: {id: number, holdingMax: number?}}>
----@field currencyCategories table<number, string>
 ---@field private lastrefreshlocksched number?
 ---@field private PlayedTime number? Last time `Toon.PlayedLevel` and `Toon.PlayedTotal` were updated. Unix timestamp.
 ---@field private playedpending boolean? Whether `Toon.PlayedLevel` and `Toon.PlayedTotal` need to be updated.
@@ -116,7 +114,6 @@ local INSTANCE_SAVED, TRANSFER_ABORT_TOO_MANY_INSTANCES, NO_RAID_INSTANCES_SAVED
 local ALREADY_LOOTED = ERR_LOOT_GONE:gsub("%(.*%)","")
 ALREADY_LOOTED = ALREADY_LOOTED:gsub("（.*）","") -- fix on zhCN and zhTW
 
-local currency = SI.validCurrencies
 local QuestExceptions = SI.QuestExceptions
 local TimewalkingItemQuest = SI.TimewalkingItemQuest
 
@@ -2191,7 +2188,7 @@ function SI:UpdateToonData()
     for toonName, toonData in pairs(SI.db.Toons) do
       if not toonData.WeeklyResetTime or (toonData.WeeklyResetTime < currentTimestamp ) then
         -- toonData.currency = toonData.currency or {} -- defined on init
-        for _, currencyID in ipairs(SI.validCurrencies) do
+        for _, currencyID in ipairs(Currency:GetCurrencyList()) do
           assert(toonData, "toonData.currency is nil")
           assert(toonData.currency, "toonData.currency is nil")
           local currency = toonData.currency[currencyID]
@@ -3331,7 +3328,7 @@ hoverTooltip.ShowCurrencySummary = function (cell, arg, ...)
 
   -- SI:Debug("ShowCurrencySummary", currencyID)
   local name, icon;
-  if SI.isClassicEra then
+  if not Currency.IsUsingCurrencyAPI then
     -- currencies are items 
     icon = GetItemIcon(currencyID)
     name = GetItemInfo(currencyID)
@@ -3541,23 +3538,18 @@ end
     end
   end
 
-  for _, CurrencyID in ipairs(SI.validCurrencies) do
+  local validCurrencyLookup = {}
+  for _, CurrencyID in ipairs(Currency:GetCurrencyList()) do
+    validCurrencyLookup[CurrencyID] = true
     local key = "Currency".. CurrencyID
     if SI.db.Tooltip[key] == nil then
       SI.db.Tooltip[key] = SI.defaultDB.Tooltip[key]
     end
   end
-
-  -- This is redundant i feel
-  local validCurrencyLookup = {}
-  for _, idx in ipairs(SI.validCurrencies) do 
-    validCurrencyLookup[idx] = true 
-  end
-
+  -- remove any old currencies that are no longer valid
   for _, toonData in pairs(SI.db.Toons) do
     toonData.Order = toonData.Order or 50
-    if toonData.currency then 
-      -- clean old undiscovered currency entries
+    if toonData.currency then
       for currencyID, currencyData in pairs(toonData.currency) do
         -- detect outdated entries because new version doesn't explicitly store max zeros
         if (currencyData.amount == 0 and (currencyData.weeklyMax == 0 or currencyData.totalMax == 0))
@@ -3566,7 +3558,7 @@ end
         then
           toonData.currency[currencyID] = nil
         end
-    end
+      end
     end
   end
 
@@ -5698,9 +5690,7 @@ function SI:ShowTooltip(anchor)
   end
   -- Currencies 
   local firstcurrency = true
-  local currencies = SI.db.Tooltip.CurrencySortName 
-    and SI.currencySorted 
-    or SI.validCurrencies;
+  local currencies = Currency:GetCurrencyList(SI.db.Tooltip.CurrencySortName)
   local shouldShowOnAll = function(currencyID)
     if SI.isRetail then return true end -- retain old functionality in retail clients
     assert(

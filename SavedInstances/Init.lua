@@ -47,10 +47,32 @@ SI.maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion() 
 SI.locale = GetLocale()
 
 local build = floor(select(4, GetBuildInfo()) / 10000)
-SI.isRetail = build >= 10
-SI.isClassicEra = build == 1
-SI.isWrath = build == 3
-SI.isCataclysm = build == 4
+local Expansion = {
+    Classic = 0,
+    TBC = 1,
+    Wrath = 2,
+    Cata = 3,
+    Mists = 4,
+    Mainline = 5, -- Retail
+}
+local ExpansionProjectID = {
+    [Expansion.Classic] = WOW_PROJECT_CLASSIC,
+    [Expansion.TBC] = WOW_PROJECT_BURNING_CRUSADE_CLASSIC,
+    [Expansion.Wrath] = WOW_PROJECT_WRATH_CLASSIC,
+    [Expansion.Cata] = WOW_PROJECT_CATACLYSM_CLASSIC,
+    [Expansion.Mists] = WOW_PROJECT_MISTS_CLASSIC or 19,
+    [Expansion.Mainline] = WOW_PROJECT_MAINLINE,
+}
+local WoWProjectExpansionID = tInvert(ExpansionProjectID)
+Expansion.Current = WoWProjectExpansionID[WOW_PROJECT_ID]
+
+SI.Enum = {}
+SI.Enum.Expansion = Expansion
+
+SI.isRetail = Expansion.Current == Expansion.Mainline
+SI.isClassicEra = Expansion.Current == Expansion.Classic
+SI.isWrath = Expansion.Current == Expansion.Wrath
+SI.isCataclysm = Expansion.Current == Expansion.Cata
 SI.isSoD = SI.isClassicEra
     and C_Seasons.HasActiveSeason()
     and C_Seasons.GetActiveSeason() == Enum.SeasonID.SeasonOfDiscovery;

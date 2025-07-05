@@ -34,25 +34,24 @@ local SI, L = unpack((select(2, ...)))
 local QTip = SI.Libs.QTip
 local db
 
+-- Set the maximum LFG Dungeon ID to scan for instance data.
+-- see https://wago.tools/db2/LFGDungeons? (filter by build) for highest possible value for an instanceID
+-- just set this to a high enough number and eat the cost of the dead `GetLFGDungeonInfo` calls.
+-- There are some manual entries tied to unused dungeon ids in the range.
+-- eg: classic db table is missing Naxx/AQ20/40 which are spoofed as 159, 160 and 161.
+-- See `SI:UpateInstanceData()`
+local MAX_LFG_DUNGEON_ID =
+  (SI.Enum.Expansion.Current > SI.Enum.Expansion.Classic)
+    and 4000
+    or 200 -- classic era has a lot less
+
+
+-- Used for scanning lockout difficulties to display in the tooltip.
 -- https://wago.tools/db2/Difficulty?sort[ID]=desc
--- retail (@10.2.5):  205 = "Follower"
--- cata (@3.4.3): 194 = "25 Player (Heroic)"
+-- cata (@4.4.2): 194 = "25 Player (Heroic)"
 -- classic (@1.15.4): 231 = "Normal", this is flex SoD raids
-local MAX_DIFFICULTY_ID = (SI.isRetail and 205) 
-  or (SI.isCataclysm and 194) 
-  or (SI.isClassicEra and 231)
-  or 33; -- old default
-
-
--- see https://wago.tools/db2/LFGDungeons? (filter by build)
--- highest possible value for an instanceID, 
--- retail client:  2730 = "Grim Batol"
--- cata client: 2497 = "The Oculus"
--- classic client: 131 = "Winterspring", 
--- note: 1.15.1 Classic db table is missing Naxx/AQ20/40 which are 159, 160 and 161.
-local MAX_LFG_DUNGEON_ID = (SI.isClassicEra and 161)
-  or (SI.isCataclysm and 2497) 
-  or 2730; -- assume retail 
+-- mists: @5.5.0 = 237 "Celestial"
+local MAX_DIFFICULTY_ID = 250
 
 -- max columns per player+instance (in tooltip)
 local MAX_COL_PER_CHARACTER = 4;

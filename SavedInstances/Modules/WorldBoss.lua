@@ -1,23 +1,40 @@
+---@type SavedInstances
 local SI, L = unpack((select(2, ...)))
+---@class WorldBossesModule: AceModule
 local Module = SI:NewModule('WorldBoss')
 
--- encounter index is embedded in the Hjournal hyperlink
+
+local clientHasWorldBosses = SI.Enum.Expansion.Current >= SI.Enum.Expansion.Mists
+local mistsMaxLevel = 90
+
+---@class WorldBossEncounterInfo
+---@field name string? localized boss name
+---@field quest number? quest used for obtaining kill completion info
+---@field expansion ExpansionID|number expansion this boss belongs to
+---@field remove boolean? used to make deprecated bosses to be removed from saved variables
+---@field level number? minimum player level to get credit for the kill
+
+-- `encounterID` is embedded in the Hjournal hyperlink
 -- https://wago.tools/db2/JournalEncounter
 -- https://wago.tools/db2/QuestV2CliTask?page=2&filter[Flags_0]=0x90040&filter[QuestInfoID]=112
-SI.WorldBosses = {
+---@type {[number]: WorldBossEncounterInfo} maps {[encounterID]: WorldBossEncounterInfo}
+local worldBossData = {
   -- Mist of Pandaria
-  [691] = { quest=32099, expansion=4, level=35 }, -- Sha of Anger
-  [725] = { quest=32098, expansion=4, level=35 }, -- Galleon
-  [814] = { quest=32518, expansion=4, level=35 }, -- Nalak
-  [826] = { quest=32519, expansion=4, level=35 }, -- Oondasta
-  [857] = { quest=33117, expansion=4, level=35, name=L["The Four Celestials"]  }, -- Chi-Ji
-  [861] = { quest=nil,   expansion=4, level=35 }, -- Ordos
+  [691] = { quest=32099, expansion=4, level=mistsMaxLevel }, -- Sha of Anger
+  [725] = { quest=32098, expansion=4, level=mistsMaxLevel }, -- Galleon
+  [814] = { quest=32518, expansion=4, level=mistsMaxLevel }, -- Nalak
+  [826] = { quest=32519, expansion=4, level=mistsMaxLevel }, -- Oondasta
+  -- 857 is Chi-Ji (used as a catch-all for all four trail bosses with name overwritten)
+  [857] = { quest=33117, expansion=4, level=mistsMaxLevel, name=L["The Four Celestials"] },
+  [861] = { quest=33118, expansion=4, level=mistsMaxLevel }, -- Ordos
 
   -- Warlords of Draenor
   [1211] = { quest=37462,  expansion=5, level=40, -- Drov/Tarlna share a loot and quest atm
-    name=select(2,EJ_GetCreatureInfo(1,1291)):match("^[^ ]+").." / "..
-    select(2,EJ_GetCreatureInfo(1,1211)):match("^[^ ]+")},
-  [1262] = { quest=37464, expansion=5, level=40 }, -- Rukhmar
+    name = (select(2, EJ_GetCreatureInfo(1, 1291)) or "Dorav"):match("^[^ ]+")
+            .. " / "
+            .. (select(2, EJ_GetCreatureInfo(1, 1211)) or "Tarlna"):match("^[^ ]+")
+  },
+  [1262] = { quest = 37464, expansion = 5, level = 40 }, -- Rukhmar
   [1452] = { quest=39380, expansion=5, level=40 }, -- Kazzak
 
   -- Legion
@@ -101,3 +118,67 @@ SI.WorldBosses = {
   [9012] = { quest=66618, name=EJ_GetEncounterInfo(2456), expansion=8, level=60 }, -- Mor'geth, Tormentor of the Damned
   [9013] = { quest=66619, name=EJ_GetEncounterInfo(2468), expansion=8, level=60 }, -- Antros
 }
+
+-- void any world boss data that is not in the current expansion
+for encounterID, boss in pairs(worldBossData) do
+  if boss.expansion > SI.Enum.Expansion.Current then
+    worldBossData[encounterID] = nil
+  end
+end
+
+function Module:UpdateInstanceStoreInfo()
+  local newInstanceCount = 0
+  -- no world bosses in classic/tbc/wrath/cata
+  if not clientHasWorldBosses then return newInstanceCount end
+  for encounterID, boss in pairs(worldBossData) do
+    ---@type string
+    local bossName = select(2,EJ_GetCreatureInfo(1, encounterID)) or ("UNKNOWN"..encounterID);
+    -- debug related check
+    if boss.name and boss.name ~= bossName then
+        SI:Debug("WorldBoss name mismatch for encounterID=%i\nSaved: \"%s\"\nEncounter Journal: \"%s\"",
+          encounterID, boss.name, bossName
+        )
+    end
+    -- preserve the original name if possible
+    boss.name = boss.name or bossName
+
+    local savedEntry = SI.db.Instances[boss.name]
+    if boss.remove then -- cleanup flag for deprecated wbosses
+      SI.db.Instances[boss.name] = nil
+      worldBossData[encounterID] = nil
+    else
+      if not savedEntry then
+        newInstanceCount = newInstanceCount + 1
+        SI.db.Instances[boss.name] = {
+          Show = "saved",
+          WorldBoss = encounterID,
+          Expansion = boss.expansion,
+          RecLevel = boss.level,
+          -- Holiday = boss.holiday or nil,
+          -- Random = boss.random,
+          lfgDungeonID = 0,
+          Raid = true,
+          encountersByDifficulty = {}
+        }
+      else
+          -- update entry incase of miss match
+          -- ie same boss in multiple expansions
+          savedEntry.WorldBoss = encounterID
+          savedEntry.Expansion = boss.expansion
+          savedEntry.RecLevel = boss.level
+          savedEntry.Raid = true
+      end
+    end
+  end
+  return newInstanceCount
+end
+
+---@return fun(): number, WorldBossEncounterInfo
+function Module:IterateBossEncounterInfo()
+  ---@diagnostic disable-next-line: redundant-return-value
+  return pairs(clientHasWorldBosses and worldBossData or {})
+end
+
+function Module:GetEncounterInfo(encounterID)
+  return clientHasWorldBosses and worldBossData[encounterID] or nil
+end

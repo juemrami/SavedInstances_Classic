@@ -47,6 +47,7 @@ SI.maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion() 
 SI.locale = GetLocale()
 
 local build = floor(select(4, GetBuildInfo()) / 10000)
+---@enum ExpansionID
 local Expansion = {
     Classic = 0,
     TBC = 1,

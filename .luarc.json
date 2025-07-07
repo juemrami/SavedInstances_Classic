@@ -321,7 +321,6 @@
         "READY"
     ],
     "diagnostics.disable": [
-        "deprecated",
-        "inject-field"
+        "deprecated"
     ]
 }

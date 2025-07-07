@@ -140,6 +140,10 @@ local WorldBuffs
 if SI.isClassicEra then
   WorldBuffs = SI:GetModule('WorldBuffs') --[[@as WorldBuffsModule]]
 end
+local WorldBosses;
+if SI.Enum.Expansion.Current >= SI.Enum.Expansion.Mists then
+  WorldBosses = SI:GetModule('WorldBoss') --[[@as WorldBossesModule]]
+end
 SI.Indicators = {
   ICON_STAR = ICON_LIST[1] .. "16:16:0:0|t",
   ICON_CIRCLE = ICON_LIST[2] .. "16:16:0:0|t",
@@ -162,10 +166,6 @@ SI.IndicatorIconTextures = SI.Indicators
 -- for non retail versions of the addon
 if not SI.isRetail then
   SI.LFRInstances = {}
-  -- todo: move typdef to module file.
-  ---@type {[number]: {eid: number?, name: string, expansion: number?, holiday: boolean?, random: boolean?, remove: boolean?, level: number?, lfdid: number?, quest: number?, savename: string? }}
-  SI.WorldBosses = {} 
-  
   SI.Emissaries = {}
 end
 
@@ -1538,50 +1538,10 @@ function SI:UpdateInstanceData()
   end
 
   --- Update the world boss data
-  for encounterID, boss in pairs(SI.WorldBosses) do
-
-    ---@type string
-    local bossName = select(2,EJ_GetCreatureInfo(1, encounterID)) 
-      or ("UNKNOWN"..encounterID) 
-
-    -- debug related check 
-    if boss.name and boss.name ~= bossName then
-      SI:Debug("WorldBoss name mismatch for encounter: "..encounterID
-      ..". OLD:"..boss.name
-      .."| NEW:"..bossName )
-    end
-    -- preserve the original name if possible
-    boss.name = boss.name or bossName
-    
-    local instanceEntry = SI.db.Instances[boss.name]
-    if boss.remove then -- cleanup flag for deprecated wbosses. 
-      SI.db.Instances[boss.name] = nil
-      SI.WorldBosses[encounterID] = nil
-    else
-      if not instanceEntry then
-        newInstanceCount = newInstanceCount + 1
-        SI.db.Instances[boss.name] = {
-          Show = "saved",
-          WorldBoss = encounterID,
-          Expansion = boss.expansion,
-          RecLevel = boss.level,
-          Holiday = boss.holiday,
-          Random = boss.random,
-          LFDID = boss.lfdid,
-          lfgDungeonID = boss.lfdid or 0,
-          Raid = true,
-          encountersByDifficulty = {}
-        }
-      else
-          -- update entry incase of miss match
-          -- ie same boss in multiple expansions
-          instanceEntry.WorldBoss = encounterID
-          instanceEntry.Expansion = boss.expansion
-          instanceEntry.RecLevel = boss.level
-          instanceEntry.Raid = true
-      end
-      worldBossInstanceKeys[encounterID] = boss.name
-    end
+  local addedBosses = WorldBosses:UpdateInstanceStoreInfo()
+  newInstanceCount = newInstanceCount + addedBosses
+  for encounterID, boss in WorldBosses:IterateBossEncounterInfo() do
+    worldBossInstanceKeys[encounterID] = boss.name
   end
 
   -- Instance Merging
@@ -3037,7 +2997,7 @@ hoverTooltip.ShowIndicatorTooltip = function (cell, arg, ...)
   if not instanceKey or not toon or not difficultyID then return end
   local indicatorTip = Tooltip:AcquireIndicatorTip(3, "LEFT", "LEFT","RIGHT")
   local instance = SI.db.Instances[instanceKey]
-  local worldboss = instance and instance.WorldBoss
+  local worldBossEncounterID = instance and instance.WorldBoss
   local lockoutInfo = instance[toon][difficultyID]
   if not lockoutInfo then return end
   local lockoutID = lockoutInfo.ID or 0
@@ -3172,8 +3132,8 @@ hoverTooltip.ShowIndicatorTooltip = function (cell, arg, ...)
         bossid = remap[i-base+1]
       end
       local bossname
-      if worldboss then
-        bossname = SI.WorldBosses[worldboss].name or "UNKNOWN"
+      if worldBossEncounterID then
+        bossname = WorldBosses:GetEncounterInfo(worldBossEncounterID).name or "UNKNOWN"
       else
         bossname = GetLFGDungeonEncounterInfo(instance.lfgDungeonID, bossid)
       end
@@ -4406,10 +4366,9 @@ function SI:Refresh(recoverDailies)
       wbsave[name] = true
     end
   end
-  for _,encounterInfo in pairs(SI.WorldBosses) do
-    if nextWeeklyReset 
-      and ((encounterInfo.quest and C_QuestLog.IsQuestFlaggedCompleted(encounterInfo.quest)) 
-          or wbsave[encounterInfo.savename or encounterInfo.name]) 
+  for _, encounterInfo in WorldBosses:IterateBossEncounterInfo() do
+    if nextWeeklyReset and ((encounterInfo.quest and C_QuestLog.IsQuestFlaggedCompleted(encounterInfo.quest))
+    or wbsave[encounterInfo.name])
     then
       local instanceKey = encounterInfo.name
       local instance = SI.db.Instances[instanceKey]

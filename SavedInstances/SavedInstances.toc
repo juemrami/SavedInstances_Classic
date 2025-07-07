@@ -38,9 +38,7 @@ Modules\TradeSkill.lua
 # Modules\MythicPlus.lua
 # Modules\Paragon.lua
 # Modules\Warfront.lua
-# Modules\WorldBoss.lua
-
-# requies saved vars to be loaded
+Modules\WorldBoss.lua
 Modules\WorldBuffs.lua
 
 Core\Config.lua

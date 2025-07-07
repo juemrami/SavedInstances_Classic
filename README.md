@@ -6,24 +6,28 @@
 
 </div>
 
-An addon that keeps track of the instance/raid lockouts saved against your characters, and related currencies and cooldowns. Supports all official versions of the game.
+Classic Fork of [SavedInstances](https://github.com/SavedInstances/SavedInstances)
+
+An addon that keeps track of the instance/raid lockouts saved against your characters, and related currencies and cooldowns. 
+
+Supports Classic Era (including Season of Discovery), Wrath of the Lich King Classic, Cataclysm Classic, and Mists of Pandaria Classic.
 
 ## Features:
 
 - Tooltip display shows current lockouts and data for all your characters, and optionally expired lockouts
 - Secondary tooltip (per-lockout) shows lockout details including bosses available, lock status and time remaining, and can be linked into chat
-- Tracks the honor points and conquest points of all your characters, including weekly caps (Retail)
+- Tracks the honor points and conquest points of all your characters, including weekly caps
 - Tracks seals, resources, money, and other useful currencies (configurable display)
-- Tracks weekly World Boss Loots (Retail)
-- Tracks LFR bosses looted (Cata+)
-- Tracks holiday boss encounters (WotLK+)
+<!-- - Tracks weekly World Boss Loots (Retail) -->
+- Tracks LFR bosses looted
+- Tracks holiday boss encounters
 - Tracks daily and weekly quests completed for each toon (mouseover entry to list completed quests)
 - Tracks monthly Darkmoon Faire quests completed for each toon (mouseover weekly quests)
 - Tracks trade skill cooldowns (eg. Mooncloth, Saltshaker, Transmutes, etc.)
 - Tracks data for all your characters across servers and factions
 - Can be configured to always show your favorite instances so you can use it like a shopping list
 - Tracks Blizzard's instance per hour per account limit (*)
-- Tracking Bonus Loot Rolls (hidden by default), to help in "gaming" the bad luck protection (Retail)(*)
+<!-- - Tracking Bonus Loot Rolls (hidden by default), to help in "gaming" the bad luck protection (Retail)(*) -->
 
 [Bug Reports and Feature Requests](https://github.com/juemrami/SavedInstances_Classic/issues) (Bug reports in comments might not be seen)
 

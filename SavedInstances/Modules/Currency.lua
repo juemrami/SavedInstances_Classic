@@ -208,12 +208,12 @@ local modernClassicCurrencies = {
     391, -- Tol Barad Commendation
     395, -- Justice Points
     396, -- Valor Points
-    402, -- Chef's Award
     416, -- Mark of the World Tree
     614, -- Mote of Darkness
     615, -- Essence of Corrupted Deathwing
     3148, -- Fissure Stone Fragment
     3281, -- Obsidian Fragment
+    Expansion.Current == Expansion.Cata and 402 or nil, -- Chef's Award (Moved to Ironpaw Token in Mists)
   },
   -- Mists of Pandaria
   [EXPANSION_NAME4] = Expansion.Current >= Expansion.Mists and {

@@ -2147,9 +2147,7 @@ function SI:UpdateToonData()
   if nextWeeklyReset > currentTimestamp then
     for toonName, toonData in pairs(SI.db.Toons) do
       if not toonData.WeeklyResetTime or (toonData.WeeklyResetTime < currentTimestamp ) then
-        -- toonData.currency = toonData.currency or {} -- defined on init
         for _, currencyID in ipairs(Currency:GetCurrencyList()) do
-          assert(toonData, "toonData.currency is nil")
           assert(toonData.currency, "toonData.currency is nil")
           local currency = toonData.currency[currencyID]
           if currency and currency.earnedThisWeek then
@@ -3473,6 +3471,10 @@ if SavedInstancesDB.DBVersion < 12 then
   SavedInstancesDB.DBVersion = 12
 end
 if SavedInstancesDB.DBVersion < 13 then
+    -- `.currency` saved var is now initialized in `SI:toonInit()` instead of `SI:UpdateToonData()`
+  for _, toonData in pairs(SavedInstancesDB.Toons) do
+    toonData.currency = toonData.currency or {}
+  end
 end
 -- end backwards compatibilty
   

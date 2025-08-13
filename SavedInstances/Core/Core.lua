@@ -2091,10 +2091,21 @@ function SI:UpdateToonData()
 
   -- On Daily Reset
   if nextDailyReset and nextDailyReset > currentTimestamp then
+    -- account daily clean up on new days
+    if playerData.DailyResetTime < currentTimestamp then
+      for id, quest in pairs(SI.db.Quests) do
+        if quest.isDaily then
+          SI.db.Quests[id] = nil
+        end
+      end
+      -- current character data will reset in the following loop through all characters.
+      -- playerData.DailyResetTime = nextDailyReset
+    end
+    -- cleanup normal dailies for all characters, and catchup their reset timer.
     for name, toonData in pairs(SI.db.Toons) do
-      if not toonData.DailyResetTime or (toonData.DailyResetTime < time()) then
-        for id,qi in pairs(toonData.Quests) do
-          if qi.isDaily then
+      if not toonData.DailyResetTime or (toonData.DailyResetTime < currentTimestamp) then
+        for id,quest in pairs(toonData.Quests) do
+          if quest.isDaily then
             toonData.Quests[id] = nil
           end
         end
@@ -2105,13 +2116,6 @@ function SI:UpdateToonData()
     ---@todo type out `Calling`
     ---@diagnostic disable-next-line: undefined-field 
     if SI.isRetail and Calling then Calling:OnDailyReset() end
-    playerData.DailyResetTime = nextDailyReset
-    if not playerData.DailyResetTime or (playerData.DailyResetTime < time()) then -- AccountDaily reset
-      for id, quest in pairs(playerData.Quests) do
-        if quest.isDaily then
-          playerData.Quests[id] = nil
-        end
-    end
 
     -- Emissary Quest Reset
     if SI.db.Emissary and SI.db.Emissary.Expansion then
@@ -2138,7 +2142,25 @@ function SI:UpdateToonData()
         end
       end
     end
-    playerData.DailyResetTime = nextDailyReset
+  end
+  -- Clear expired non-daily quests for all toons
+  for _, toonData in pairs(SI.db.Toons) do
+    for id,quest in pairs(toonData.Quests) do
+      if not quest.isDaily and (quest.Expires or 0) < currentTimestamp then
+        if SI.db.QuestDB.Darkmoon[id] then
+          SI:Debug("clearing up expried DMF quest: %s [%i] |n character: %s | expired: %s", quest.Title, id, _, date("%c", quest.Expires));
+        end
+        toonData.Quests[id] = nil
+      end
+      if QuestExceptions[id] == "Regular" then -- adjust exceptions
+        toonData.Quests[id] = nil
+      end
+    end
+  end
+  -- Clear expired non-daily account-wide quests
+  for id, quest in pairs(SI.db.Quests) do -- AccountWeekly reset
+    if not quest.isDaily and (quest.Expires or 0) < currentTimestamp then
+      SI.db.Quests[id] = nil
     end
   end
 
@@ -2172,17 +2194,6 @@ function SI:UpdateToonData()
       end
     end
   end
-  -- Quest Resets for all toons
-  for toon, toonData in pairs(SI.db.Toons) do
-    for id,quest in pairs(toonData.Quests) do
-      if not quest.isDaily and (quest.Expires or 0) < currentTimestamp then
-        toonData.Quests[id] = nil
-      end
-      if QuestExceptions[id] == "Regular" then -- adjust exceptions
-        toonData.Quests[id] = nil
-      end
-    end
-  end
   -- Mythic+ Keystone weekly reset for all toons
   for toon, toonData in pairs(SI.db.Toons) do
     if toonData.MythicKey and (toonData.MythicKey.ResetTime or 0) < currentTimestamp then
@@ -2205,12 +2216,6 @@ function SI:UpdateToonData()
       toonData.MythicKeyBest.lastCompletedIndex = nil
       toonData.MythicKeyBest.runHistory = nil
       toonData.MythicKeyBest.ResetTime = SI:GetNextWeeklyResetTime()
-    end
-  end
-  -- Quest resets for *current* toon
-  for id, quest in pairs(playerData.Quests) do -- AccountWeekly reset
-    if not quest.isDaily and (quest.Expires or 0) < currentTimestamp then
-      playerData.Quests[id] = nil
     end
   end
 
@@ -2361,6 +2366,8 @@ local function SI_OnQuestComplete()
     propperQuestDB = SI.db.QuestDB.Darkmoon
   elseif isDaily then
     propperQuestDB = (isAccount and SI.db.QuestDB.AccountDaily) or SI.db.QuestDB.Daily
+    -- Dailies are reset on new days instead of an expiry timestamp.
+    -- expires = SI:GetNextDailyResetTime()
   end
 
   SI:Debug("Quest Complete: "..(questLink or questTitle).." "..questID.." : "..questTitle.." "..
@@ -2523,31 +2530,31 @@ hoverTooltip.ShowQuestTooltip = function (cell, arg, ...)
     indicatortip:AddLine(LIGHTYELLOW:WrapTextInColorCode(L["Time Left"] .. ":"),
       SecondsToTime(reset - time()))
   end
-  local ql = {}
+  local questsByZoneKey = {} -- groups quests by zone, to be sorted.
   local zonename, id
-  for id,qi in pairs(targetDB.Quests) do
-    if (not isDaily) == (not qi.isDaily) then
+  for id, questInfo in pairs(targetDB.Quests) do
+    if (not isDaily) == (not questInfo.isDaily) then
       if not SI:QuestIgnored(id)
-      -- only show darkmoon quest in darkmoon category
+      -- only show darkmoon quest in character specific darkmoon categories
       and (not (QuestExceptions[id] == "Darkmoon") or isDMF)
       then
-        zonename = qi.Zone and qi.Zone.name or ""
-        table.insert(ql,zonename.." # "..id)
+        zonename = questInfo.Zone and questInfo.Zone.name or ""
+        table.insert(questsByZoneKey,zonename.." # "..id)
       end
     end
   end
-  table.sort(ql)
-  for _,e in ipairs(ql) do
-    zonename, id = e:match("(.*) # (%d+)")
+  table.sort(questsByZoneKey)
+  for _, key in ipairs(questsByZoneKey) do
+    zonename, id = key:match("(.*) # (%d+)")
     id = tonumber(id)
-    local qi = targetDB.Quests[id]
+    local questInfo = targetDB.Quests[id]
     local line = indicatortip:AddLine()
-    local link = qi.Link
+    local link = questInfo.Link
     if not link then -- sometimes missing the actual link due to races, fake it for display to prevent confusion
-      if qi.Title and qi.Title:find("("..LOOT..")") then
-        link = qi.Title
+      if questInfo.Title and questInfo.Title:find("("..LOOT..")") then
+        link = questInfo.Title
       else
-        link = "\124cffffff00["..(qi.Title or "???").."]\124r"
+        link = "\124cffffff00["..(questInfo.Title or "???").."]\124r"
       end
     end
     -- Exception: Some quests should not show zone name, such as Blingtron

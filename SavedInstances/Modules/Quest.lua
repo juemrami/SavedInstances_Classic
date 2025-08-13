@@ -233,6 +233,7 @@ local QuestExceptions = {
   [33134] = "Regular", -- Warforged Seals
   [33338] = "Weekly", -- Empowering the Hourglass
   [33334] = "Weekly", -- Strong Enough to Survive
+  [32175] = "AccountDaily", -- Darkmoon Pet Battle!
 
   -- LEG
   -- Order Hall

@@ -12,6 +12,8 @@ local C_Calendar_GetMonthInfo = C_Calendar.GetMonthInfo
 local C_Calendar_SetAbsMonth = C_Calendar.SetAbsMonth
 local GetQuestResetTime = GetQuestResetTime
 
+local ONE_WEEK_IN_SECONDS = 7 * 24 * 60 * 60
+
 -- Current unix time minus the users system uptime (seconds).
 local systemStartTimestamp = time() - GetTime();
 
@@ -62,10 +64,15 @@ end
 
 SI.GetNextDailySkillResetTime = SI.GetNextDailyResetTime
 
---- Returns unix timestamp in seconds for the next weekly reset.
+---Gets the upcoming weekly reset timestamp.
+---@param offset number? optional offset in weeks
 ---@return number resetTimestamp
-function SI:GetNextWeeklyResetTime()
-  return time() + C_DateAndTime_GetSecondsUntilWeeklyReset()
+function SI:GetNextWeeklyResetTime(offset)
+  local secondsLeft = C_DateAndTime.GetSecondsUntilWeeklyReset()
+  if offset then
+    secondsLeft = secondsLeft + (offset * ONE_WEEK_IN_SECONDS)
+  end
+  return time() + secondsLeft
 end
 
 ---@param calenderTable CalendarTime

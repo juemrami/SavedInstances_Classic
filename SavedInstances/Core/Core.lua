@@ -122,6 +122,8 @@ local Tooltip = SI:GetModule('Tooltip')
 local Progress = SI:GetModule('Progress')
 local TradeSkill = SI:GetModule('TradeSkill')
 local Currency = SI:GetModule('Currency')
+local BonusRolls = SI:GetModule('BonusRolls', true) --[[@as BonusRollsModule?]]
+
 ---@cast Config ConfigModule
 ---@cast Tooltip TooltipModule
 ---@cast Progress ProgressModule
@@ -2812,9 +2814,26 @@ hoverTooltip.ShowBonusTooltip = function (cell, arg, ...)
   indicatortip:SetCell(1,3,L["Recent Bonus Rolls"],nil,"RIGHT",2)
 
   local line = indicatortip:AddLine()
+  local lastWeeklyReset = SI:GetNextWeeklyResetTime(-1)
+  local lastWeeklyRollIdx = 0
+  for _, roll in ipairs(t.BonusRoll) do
+    if roll.time and roll.time >= lastWeeklyReset then
+      lastWeeklyRollIdx = lastWeeklyRollIdx + 1
+    else
+      break;
+    end
+  end
+  local seperateWeeklyRolls = lastWeeklyRollIdx > 0
+  if seperateWeeklyRolls then
+    indicatortip:SetCell(line, 1, GUILD_CHALLENGES_THIS_WEEK, nil, "LEFT", 2)
+  end
   for i,roll in ipairs(t.BonusRoll) do
     if i > 10 then break end
     local line = indicatortip:AddLine()
+    if seperateWeeklyRolls and i == lastWeeklyRollIdx + 1 then
+      indicatortip:SetCell(line, 1, PREVIOUS, nil, "LEFT", 2)
+      line = indicatortip:AddLine()
+    end
     local icon = roll.costCurrencyID and (Currency.OverrideTexture[roll.costCurrencyID] or C_CurrencyInfo.GetCurrencyInfo(roll.costCurrencyID).iconFileID)
     if icon then
       indicatortip:SetCell(line,1, " \124T"..icon..":0\124t ")
@@ -3621,8 +3640,6 @@ function SI:OnEnable()
   self:RegisterBucketEvent("LFG_LOCK_INFO_RECEIVED", 1, RequestRaidInfo)
   self:RegisterEvent("PLAYER_LOGOUT", function() SI.logout = true ; SI:UpdateToonData() end) -- update currency spent
   self:RegisterEvent("LFG_COMPLETION_REWARD", "RefreshLockInfo") -- for random daily dungeon tracking
-  self:RegisterEvent("BOSS_KILL")
-  self:RegisterEvent("ENCOUNTER_END")
   self:RegisterEvent("TIME_PLAYED_MSG", function(_,total,level)
     local t = SI.thisToon and SI and SI.db and SI.db.Toons[SI.thisToon]
     if total > 0 and t then
@@ -3637,8 +3654,7 @@ function SI:OnEnable()
       SI.playedpending = false
     end
   end)
-  self:RegisterEvent("ADDON_LOADED")
-  SI:ADDON_LOADED()
+
   if not SI.resetDetect then
     SI.resetDetect = CreateFrame("Button", "SavedInstancesResetDetectHiddenFrame", UIParent)
     for _,e in pairs({
@@ -3655,21 +3671,6 @@ function SI:OnEnable()
   SI:HistoryEvent("PLAYER_ENTERING_WORLD") -- update after initial load
   SI:ValidateAndGetSpecialQuests()
   SI:updateRealmMap()
-end
-
-function SI:ADDON_LOADED()
-  if DBM and DBM.EndCombat and not SI.dbmhook then
-    SI.dbmhook = true
-    hooksecurefunc(DBM, "EndCombat", function(self, mod, wipe)
-      SI:BossModEncounterEnd("DBM:EndCombat", mod and mod.combatInfo and mod.combatInfo.name)
-    end)
-  end
-  if BigWigsLoader and not SI.bigwigshook then
-    SI.bigwigshook = true
-    BigWigsLoader.RegisterMessage(self, "BigWigs_OnBossWin", function(self, event, mod)
-      SI:BossModEncounterEnd("BigWigs_OnBossWin", mod and mod.displayName)
-    end)
-  end
 end
 
 function SI:OnDisable()
@@ -3765,64 +3766,6 @@ function SI:getRealmGroup(realmName)
   local realmMap = SI.db.RealmMap
   local connectedIdx = realmMap and realmMap[realmName]
   return connectedIdx, connectedIdx and realmMap[connectedIdx]
-end
-
---- Record a recent boss kill in the given `SI.db.Toon[toon]`'s data store.
----
---- I feel like this function is better defined here, in `Core.lua`, vs in `Modules/BonusRoll.lua`. 
---- Theres no expectation that the BonusRole module would be required for the `SI:BossModEncounterEnd` function.
---- @param toon string formatted as "Name - Server"
---- @param bossName string
---- @param difficultyID number
---- @param soft boolean?
-function SI:BossRecord(toon, bossName, difficultyID, soft)
-  ---@type SavedInstances.Toon
-  local toonData = SI.db.Toons[toon]
-  if not toonData then return end
-  local now = time()
-  
-  -- boss mods can often detect completion before ENCOUNTER_END
-  -- also some world bosses never send ENCOUNTER_END
-  -- enough timeout to prevent overwriting, but short enough to prevent cross-boss contamination
-  local lastKillTimestamp = toonData.lastbosstime or 0
-  if soft == false 
-    and (not bossName or now <= lastKillTimestamp + 120) 
-  then 
-    return
-  end
-  
-  bossName = tostring(bossName) -- for safety 
-  -- we should be confident its a string if code is well written.
-
-  local difficultyName = GetDifficultyInfo(difficultyID)
-  if difficultyName and #difficultyName > 0 then
-    bossName = bossName .. ": ".. difficultyName
-  end
-  toonData.lastboss = bossName
-  toonData.lastbosstime = now
-end
-
-function SI:BossModEncounterEnd(modname, bossname)
-  SI:Debug("%s refresh: %s", (modname or "BossMod"), tostring(bossname))
-  SI:BossRecord(SI.thisToon, bossname, select(3, GetInstanceInfo()), true)
-  self:RefreshLockInfo()
-end
-
-function SI:ENCOUNTER_END(event, encounterID, encounterName, difficultyID, raidSize, endStatus)
-  SI:Debug("ENCOUNTER_END:%s:%s:%s:%s:%s", tostring(encounterID), tostring(encounterName), tostring(difficultyID), tostring(raidSize), tostring(endStatus))
-  if endStatus ~= 1 then return end -- wipe
-  self:RefreshLockInfo()
-  SI:BossRecord(SI.thisToon, encounterName, difficultyID)
-end
-
-function SI:BOSS_KILL(event, encounterID, encounterName, ...)
-  SI:Debug("BOSS_KILL:%s:%s",tostring(encounterID),tostring(encounterName)) -- ..":"..strjoin(":",...))
-  local name = encounterName
-  if name and type(name) == "string" then
-    name = name:gsub(",.*$","") -- remove extraneous trailing boss titles
-    name = strtrim(name)
-    self:BossModEncounterEnd("BOSS_KILL", name)
-  end
 end
 
 --- Get the group type for the currently logged in character.
@@ -5552,36 +5495,36 @@ function SI:ShowTooltip(anchor)
         end
       end
     end
-    --- Bonus Rolls
-    if SI.db.Tooltip.TrackBonus or shouldShowAll then
-      local show
-      local toonbonus = localarr("toonbonus")
-      for toon, t in cpairs(SI.db.Toons, true) do
-        ---@diagnostic disable-next-line: undefined-field
-        local count = SI:BonusRollCount(toon)
-        if count then
-          toonbonus[toon] = count
-          show = true
-        end
+  end
+
+  --- Bonus Rolls
+  if BonusRolls and (SI.db.Tooltip.TrackBonus or shouldShowAll) then
+    local show
+    local toonbonus = localarr("toonbonus")
+    for toon, t in cpairs(SI.db.Toons, true) do
+      local count = BonusRolls:GetCharacterBadLuckStreak(toon)
+      if count then
+        toonbonus[toon] = count
+        show = true
       end
-      if show then
-        if SI.db.Tooltip.CategorySpaces then
-          addsep()
-        end
-        show = tooltip:AddLine(LIGHTYELLOW:WrapTextInColorCode(L["Roll Bonus"]))
+    end
+    if show then
+      if SI.db.Tooltip.CategorySpaces then
+        addsep()
       end
-      for toon, t in cpairs(SI.db.Toons, true) do
-        if toonbonus[toon] then
-          local col = characterColumns[toon..1]
-          local str = toonbonus[toon]
-          if str > 0 then str = "+"..str end
-          if col then
-            -- check if current toon is showing
-            -- don't add columns
-            tooltip:SetCell(show, col, ClassColorise(t.Class,str), nil, "CENTER", MAX_COL_PER_CHARACTER)
-            tooltip:SetCellScript(show, col, "OnEnter", hoverTooltip.ShowBonusTooltip, toon)
-            tooltip:SetCellScript(show, col, "OnLeave", CloseTooltips)
-          end
+      show = tooltip:AddLine(LIGHTYELLOW:WrapTextInColorCode(L["Roll Bonus"]))
+    end
+    for toon, t in cpairs(SI.db.Toons, true) do
+      if toonbonus[toon] then
+        local col = characterColumns[toon .. 1]
+        local str = toonbonus[toon]
+        if str > 0 then str = "+" .. str end
+        if col then
+          -- check if current toon is showing
+          -- don't add columns
+          tooltip:SetCell(show, col, ClassColorise(t.Class, str), nil, "CENTER", MAX_COL_PER_CHARACTER)
+          tooltip:SetCellScript(show, col, "OnEnter", hoverTooltip.ShowBonusTooltip, toon)
+          tooltip:SetCellScript(show, col, "OnLeave", CloseTooltips)
         end
       end
     end

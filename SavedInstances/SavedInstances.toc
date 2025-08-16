@@ -32,7 +32,7 @@ Modules\Quest.lua
 Modules\Currency.lua
 Modules\Progress.lua
 Modules\TradeSkill.lua
-# Modules\BonusRoll.lua
+Modules\BonusRoll.lua
 # Modules\Calling.lua
 # Modules\Emissary.lua
 # Modules\LFR.lua

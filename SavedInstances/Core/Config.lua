@@ -638,8 +638,8 @@ function Config:BuildAceConfigOptions()
             type = "toggle",
             order = 43.8,
             name = L["Bonus rolls"],
-            disabled = not SI.isRetail,
-            hidden = not SI.isRetail,
+            disabled = SI.Enum.Expansion.Current < SI.Enum.Expansion.Mists,
+            hidden = SI.Enum.Expansion.Current < SI.Enum.Expansion.Mists,
           },
           AugmentBonus = {
             type = "toggle",

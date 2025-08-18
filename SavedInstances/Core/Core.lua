@@ -2362,7 +2362,7 @@ local function SI_OnQuestComplete()
     expires = SI:GetNextWeeklyResetTime()
     propperQuestDB = (isAccount and SI.db.QuestDB.AccountWeekly) or SI.db.QuestDB.Weekly
   elseif isMonthly then
-    expires = SI:GetNextDarkmoonResetTime()
+    expires = SI:GetNextDarkmoonFaireEnd()
     propperQuestDB = SI.db.QuestDB.Darkmoon
   elseif isDaily then
     propperQuestDB = (isAccount and SI.db.QuestDB.AccountDaily) or SI.db.QuestDB.Daily
@@ -2518,7 +2518,7 @@ hoverTooltip.ShowQuestTooltip = function (cell, arg, ...)
     if not targetDB then return end
     scopeStr = ClassColorise(targetDB.Class, toonFullName)
     reset = (isDaily and targetDB.DailyResetTime) -- Prio is Daily > DMF (since they have dailies too) > Weekly
-      or (isDMF and SI:GetNextDarkmoonResetTime())
+      or (isDMF and SI:GetNextDarkmoonFaireEnd())
       or (not isDaily and targetDB.WeeklyResetTime)
   end
   local indicatortip = Tooltip:AcquireIndicatorTip(2, "LEFT","RIGHT")
@@ -4191,7 +4191,7 @@ function SI:QuestRefresh(recoverDailies, nextDailyReset, nextWeeklyReset)
   local now = time()
   SI.db.QuestDB.Weekly.expires = nextWeeklyReset
   SI.db.QuestDB.AccountWeekly.expires = nextWeeklyReset
-  SI.db.QuestDB.Darkmoon.expires = SI:GetNextDarkmoonResetTime()
+  SI.db.QuestDB.Darkmoon.expires = SI:GetNextDarkmoonFaireEnd()
 
   for questType, allTrackedQuests in pairs(SI.db.QuestDB) do
     local playerOrAccountQuests = savedPlayerQuests
@@ -4199,38 +4199,47 @@ function SI:QuestRefresh(recoverDailies, nextDailyReset, nextWeeklyReset)
     if questType == "AccountDaily" or questType == "AccountWeekly" then
       playerOrAccountQuests = SI.db.Quests -- Account Quesets
     end
-
     if recoverDailies or (questType ~= "Daily") then
       for questID, mapID in pairs(allTrackedQuests) do
-        -- necessary because of the  "expires" key addeed above
-        if type(questID) == "number" then 
-          if C_QuestLog.IsQuestFlaggedCompleted(questID) 
-          and not playerOrAccountQuests[questID] -- recovering a lost quest
-          and (allTrackedQuests.expires == nil or allTrackedQuests.expires > now)  -- don't repop darkmoon quests from last faire
-        then
-          local title, link = SI:QuestInfo(questID)
-          if title then
-            local found
-            -- both player and account quest stores are indexed by quest id
-            -- so why not just use the questID instead of iterating the whole table for a name match?
-            for _, quest in pairs(playerOrAccountQuests) do
-              -- avoid faction duplicates, since both flags are set
-              if title == quest.Title then 
-                found = true
-                break
+        if type(questID) == "number" then -- mind the "expires" key in the table
+          -- hackish: clear stale dmf entries when dmf is active (shouldn't happen anymore)
+          if questType == "Darkmoon" and SI:IsDarkmoonFaireActive() and playerOrAccountQuests[questID]
+            and not C_QuestLog.IsQuestFlaggedCompleted(questID)
+          then
+            playerOrAccountQuests[questID] = nil
+          end
+
+          if C_QuestLog.IsQuestFlaggedCompleted(questID)
+              and not playerOrAccountQuests[questID] -- recovering a lost quest
+              and (allTrackedQuests.expires == nil or allTrackedQuests.expires > now)
+          then
+            local title, link = SI:QuestInfo(questID)
+            if title then
+              local found
+              -- both player and account quest stores are indexed by quest id
+              -- so why not just use the questID instead of iterating the whole table for a name match?
+              for _, quest in pairs(playerOrAccountQuests) do
+                -- avoid faction duplicates, since both flags are set
+                if title == quest.Title then
+                  found = true
+                  break
+                end
+              end
+              if not found
+              and (questType ~= "Darkmoon" or SI:IsDarkmoonFaireActive()) -- only repop darkmoon quests if faire is active
+              then
+                SI:Debug("Restoring completed tracked quest: %s [%i] | type: \"%s\" |n character: %s | expires: %s",
+                  link or title, questID, questType, SI.thisToon, date("%c", allTrackedQuests.expires)
+                )
+                playerOrAccountQuests[questID] = {
+                  Title = title,
+                  Link = link,
+                  isDaily = questType:find("Daily") and true or false,
+                  Expires = allTrackedQuests.expires,
+                  Zone = C_Map.GetMapInfo(mapID)
+                }
               end
             end
-            if not found then
-              playerOrAccountQuests[questID] = { 
-                Title = title, 
-                Link = link,
-                isDaily = questType:find("Daily") and true or false,
-                Expires = allTrackedQuests.expires,
-                Zone = C_Map.GetMapInfo(mapID) 
-              }
-              SI:Debug("Recovered lost quest: "..title.." ("..questType..")")
-            end
-          end
           end
         end
       end

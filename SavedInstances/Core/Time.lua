@@ -68,13 +68,30 @@ function SI:GetNextWeeklyResetTime()
   return time() + C_DateAndTime_GetSecondsUntilWeeklyReset()
 end
 
+---@param calenderTable CalendarTime
+---@return osdateparam osDateTable
+local function calenderTableToOSDateTable(calenderTable)
+  return {
+    year = calenderTable.year,
+    month = calenderTable.month,
+    day = calenderTable.monthDay,
+    hour = calenderTable.hour,
+    min = calenderTable.minute,
+    sec = 0,                          -- os.date does not use seconds
+    wday = calenderTable.weekday,     -- 1-7, Sunday is 1
+    yday = nil,                       -- not used
+    isdst = false,                    -- not used
+  }
+end
+
 ---@return number timestamp time in seconds remaining until the ending of the current or upcoming dmf.
-function SI:GetNextDarkmoonResetTime()
+function SI:GetNextDarkmoonFaireEnd()
     local DARKMOON_EVENT_ID = 479
     local current = C_DateAndTime_GetCurrentCalendarTime()
     C_Calendar_SetAbsMonth(current.month, current.year)
     local currentMonth = C_Calendar_GetMonthInfo()
-    local getNextEndTimeTable = function(getUpcoming)
+    local getNextEndCalenderTime = function()
+        local getUpcoming = true -- if no faire is active, return time until next faire end
         local startDay = current.monthDay
         local stopDay = getUpcoming and currentMonth.numDays or startDay
         for day = startDay, stopDay do
@@ -103,8 +120,27 @@ function SI:GetNextDarkmoonResetTime()
             min = 59,
         }
     end
-    local darkmoonEnd = getNextEndTimeTable(true)
+    local darkmoonEnd = getNextEndCalenderTime()
     -- Unfortunately, DMF boundary ignores daylight savings, and the time of day varies across regions
     -- Report a reset well past end to make sure we don't drop quests early
     return time(darkmoonEnd) - (SI:GetServerOffset() * 3600)
+end
+
+function SI:IsDarkmoonFaireActive()
+  local current = C_DateAndTime_GetCurrentCalendarTime()
+  C_Calendar_SetAbsMonth(current.month, current.year)
+  for event = 1, C_Calendar.GetNumDayEvents(0, current.monthDay) do
+    local dayEvent = C_Calendar.GetDayEvent(0, current.monthDay, event)
+    if dayEvent.eventID == 479 then     -- Darkmoon Faire
+      local startTime = time(calenderTableToOSDateTable(dayEvent.startTime))
+      local endTime = time(calenderTableToOSDateTable(dayEvent.endTime))
+      local now = time(calenderTableToOSDateTable(current))
+      return now >= startTime and now <= endTime
+    end
+  end
+  -- fallback for clients without calender events
+  local startTime = time({ year = current.year, month = current.month, day = 1, hour = 0, min = 0, sec = 0 })
+  local endTime = time({ year = current.year, month = current.month, day = 7, hour = 23, min = 59, sec = 59 })
+  local now = time(calenderTableToOSDateTable(current))
+  return now >= startTime and now <= endTime
 end

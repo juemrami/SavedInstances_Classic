@@ -66,7 +66,7 @@ function SI:TimeDebug()
     tostring(date("%Y/%m/%d %H:%M:%S", time)), date("%Y/%m/%d %H:%M:%S", time + offset)
   )
 
-  time = SI:GetNextDarkmoonResetTime()
+  time = SI:GetNextDarkmoonFaireEnd()
   SI:ChatMsg(
     "Next Darkmoon reset: %s local, %s server",
     tostring(date("%Y/%m/%d %H:%M:%S", time)), date("%Y/%m/%d %H:%M:%S", time + offset)

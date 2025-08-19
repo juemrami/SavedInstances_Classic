@@ -252,6 +252,7 @@ function Module:GetCharacterBadLuckStreak(toon, currencyID)
   local t = SI.db.Toons[toon]
   if not t or not t.BonusRoll or #t.BonusRoll == 0 then return end
   local count = 0
+  if not currencyID or currencyID == 0 then currencyID = BONUS_ROLL_REQUIRED_CURRENCY end
   for _, trackedRoll in ipairs(t.BonusRoll) do
     if trackedRoll.costCurrencyID and trackedRoll.costCurrencyID == currencyID then
         if (not trackedRoll.item and trackedRoll.money and trackedRoll.money > 0)

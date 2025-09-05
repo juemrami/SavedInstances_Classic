@@ -1540,10 +1540,12 @@ function SI:UpdateInstanceData()
   end
 
   --- Update the world boss data
-  local addedBosses = WorldBosses:UpdateInstanceStoreInfo()
-  newInstanceCount = newInstanceCount + addedBosses
-  for encounterID, boss in WorldBosses:IterateBossEncounterInfo() do
-    worldBossInstanceKeys[encounterID] = boss.name
+  if WorldBosses then
+    local addedBosses = WorldBosses:UpdateInstanceStoreInfo()
+    newInstanceCount = newInstanceCount + addedBosses
+    for encounterID, boss in WorldBosses:IterateBossEncounterInfo() do
+      worldBossInstanceKeys[encounterID] = boss.name
+    end
   end
 
   -- Instance Merging
@@ -4319,28 +4321,29 @@ function SI:Refresh(recoverDailies)
       end
     end
   end
-
-  local wbsave = localarr("wbsave")
-  if GetNumSavedWorldBosses and GetSavedWorldBossInfo then -- 5.4
-    for i=1,GetNumSavedWorldBosses() do
-      local name, id, reset = GetSavedWorldBossInfo(i)
-      wbsave[name] = true
+  if WorldBosses then
+    local wbsave = localarr("wbsave")
+    if GetNumSavedWorldBosses and GetSavedWorldBossInfo then -- 5.4
+      for i = 1, GetNumSavedWorldBosses() do
+        local name, id, reset = GetSavedWorldBossInfo(i)
+        wbsave[name] = true
+      end
     end
-  end
-  for _, encounterInfo in WorldBosses:IterateBossEncounterInfo() do
-    if nextWeeklyReset and ((encounterInfo.quest and C_QuestLog.IsQuestFlaggedCompleted(encounterInfo.quest))
-    or wbsave[encounterInfo.name])
-    then
-      local instanceKey = encounterInfo.name
-      local instance = SI.db.Instances[instanceKey]
-      instance[SI.thisToon] = instance[SI.thisToon] or temp[instanceKey] or { }
-      -- use a difficulty id of 2 for wolrd bosses.
-      local info = instance[SI.thisToon][2] or {}
-      wipe(info)
-      instance[SI.thisToon][2] = info
-      info.Expires = nextWeeklyReset
-      info.ID = -1
-      info[1] = true
+    for _, encounterInfo in WorldBosses:IterateBossEncounterInfo() do
+      if nextWeeklyReset and ((encounterInfo.quest and C_QuestLog.IsQuestFlaggedCompleted(encounterInfo.quest))
+            or wbsave[encounterInfo.name])
+      then
+        local instanceKey = encounterInfo.name
+        local instance = SI.db.Instances[instanceKey]
+        instance[SI.thisToon] = instance[SI.thisToon] or temp[instanceKey] or {}
+        -- use a difficulty id of 2 for wolrd bosses.
+        local info = instance[SI.thisToon][2] or {}
+        wipe(info)
+        instance[SI.thisToon][2] = info
+        info.Expires = nextWeeklyReset
+        info.ID = -1
+        info[1] = true
+      end
     end
   end
 

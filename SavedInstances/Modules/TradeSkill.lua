@@ -12,14 +12,37 @@ local pairs, type, floor, abs, format = pairs, type, floor, abs, format
 local date, ipairs, tonumber, time = date, ipairs, tonumber, time
 local _G = _G
 
--- WoW API / Variables
-local C_TradeSkillUI_GetAllRecipeIDs = C_TradeSkillUI.GetAllRecipeIDs
-local C_TradeSkillUI_GetFilteredRecipeIDs = C_TradeSkillUI.GetFilteredRecipeIDs
-local C_TradeSkillUI_GetRecipeCooldown = C_TradeSkillUI.GetRecipeCooldown
-local C_TradeSkillUI_IsTradeSkillGuild = C_TradeSkillUI.IsTradeSkillGuild
-local C_TradeSkillUI_IsTradeSkillLinked = C_TradeSkillUI.IsTradeSkillLinked
-local C_TradeSkillUI_GetRecipeInfo = C_TradeSkillUI.GetRecipeInfo
+-- WoW API functions and backfills
+local C_TradeSkillUI_GetAllRecipeIDs = (
+  C_TradeSkillUI.GetAllRecipeIDs and C_TradeSkillUI.GetAllRecipeIDs or function()
+    local ids = {}
+    for i = 1, GetNumTradeSkills() do
+      ids[i] = i
+    end
+    return ids
+  end
+)
+local C_TradeSkillUI_GetFilteredRecipeIDs = (
+  C_TradeSkillUI.GetFilteredRecipeIDs and C_TradeSkillUI.GetFilteredRecipeIDs or C_TradeSkillUI_GetAllRecipeIDs
+);
+local C_TradeSkillUI_GetRecipeCooldown = (
+  C_TradeSkillUI.GetRecipeCooldown and C_TradeSkillUI.GetRecipeCooldown or GetTradeSkillCooldown
+)
+local C_TradeSkillUI_IsTradeSkillGuild = (
+  C_TradeSkillUI.IsTradeSkillGuild ~= nil and C_TradeSkillUI.IsTradeSkillGuild or function() return false end
+)
+local C_TradeSkillUI_IsTradeSkillLinked = (
+  C_TradeSkillUI.IsTradeSkillLinked and C_TradeSkillUI.IsTradeSkillLinked or IsTradeSkillLinked
+)
+local C_TradeSkillUI_GetRecipeInfo = (
+  C_TradeSkillUI.GetRecipeInfo and C_TradeSkillUI.GetRecipeInfo or GetTradeSkillInfo
+)
 
+if not SI.isRetail and C_TradeSkillUI.GetRecipeInfo then -- Era Compatibility
+  SI:Debug(
+    "C_TradeSkillUI is now supported in this version of classic! Open an issue on github to request support."
+  );
+end
 -- Helper for correcting C_Container.GetItemCooldown AFTER a system reboot
 -- src: https://github.com/Stanzilla/WoWUIBugs/issues/47#issuecomment-710698976
 ---@param lastCast number system time when spell was last cast.
@@ -37,27 +60,6 @@ local function getCastTimestamp(lastCast)
   return SI:SystemTimeToUnix(currLastCast)
 end
 
-if SI.isClassicEra then -- Era Compatibility
-  assert(not C_TradeSkillUI_GetRecipeInfo,
-    "C_TradeSkillUI is now supported in Classic! Open an issue on github to request support."
-  );
-  ---@type fun(): isLinked: boolean?, linkSource: string?
-  C_TradeSkillUI_IsTradeSkillLinked = IsTradeSkillLinked
-  C_TradeSkillUI_IsTradeSkillGuild = function() return false end
-  ---@return number[]
-  C_TradeSkillUI_GetAllRecipeIDs = function()
-    local ids = {}
-    for i = 1, GetNumTradeSkills() do
-      ids[i] = i
-    end
-    return ids 
-  end
-  C_TradeSkillUI_GetFilteredRecipeIDs = C_TradeSkillUI_GetAllRecipeIDs
-  ---@type fun(index: number): remainingSeconds: number
-  C_TradeSkillUI_GetRecipeCooldown = GetTradeSkillCooldown
-  ---@type fun(index: number): skillName: string?
-  C_TradeSkillUI_GetRecipeInfo = GetTradeSkillInfo
-end
 local GetItemCooldown = GetItemCooldown 
   or C_Container.GetItemCooldown -- former function not in the wotlk client
 local GetItemInfo = GetItemInfo

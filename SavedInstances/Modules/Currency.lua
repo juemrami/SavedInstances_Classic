@@ -218,6 +218,9 @@ local modernClassicCurrencies = {
   -- Mists of Pandaria
   [EXPANSION_NAME4] = Expansion.Current >= Expansion.Mists and {
     3350, -- August Stone Fragment
+    3414, -- August Stone Shard
+    3416, -- August Stone Cluster
+    3407, -- Platinum Coins
     402, -- Ironpaw Token
     697, -- Elder Charm of Good Fortune
     698, -- Zen Jewelcrafter's Token

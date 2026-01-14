@@ -5,8 +5,6 @@ local SI, L = unpack((select(2, ...)))
 local Module = SI:NewModule('Currency', 'AceEvent-3.0', 'AceTimer-3.0', 'AceBucket-3.0')
 local Expansion = SI.Enum.Expansion
 
-Module.IsUsingCurrencyAPI = Expansion.Current >= Expansion.Wrath
-
 -- Lua functions
 local ipairs, pairs = ipairs, pairs
 
@@ -158,34 +156,18 @@ local retailCurrencies = {
   3010, -- 10.2.6 Rewards - Personal Tracker - S4 Dinar Drops (Hidden)
 }
 
--- ordered list of currency categories
--- order here is used for the category display order in the currency settings
-local orderedCategories = {
-  -- Misc.
-  BINDING_HEADER_MISC,
-  -- PvP
-  PLAYER_V_PLAYER,
-  -- Wrath of the Lich King
-  EXPANSION_NAME2,
-  -- Cataclysm
-  EXPANSION_NAME3,
-  -- Mists of Pandaria
-  EXPANSION_NAME4,
-  -- Archaeology
-  PROFESSIONS_ARCHAEOLOGY,
-}
--- currencies used on/after wrath of the lich king
-local modernClassicCurrencies = {
+-- Currencies whos data will be fetched from the C_Currency namespace APIs
+local apiBasedCurrencies = {
   -- Misc
-  [BINDING_HEADER_MISC] = {
+  [BINDING_HEADER_MISC] = Expansion.Current >= Expansion.Wrath and {
     515, -- Darkmoon Prize Ticket
-  },
+  } or nil,
   -- PvP
-  [PLAYER_V_PLAYER] = {
-    -- 1900, -- Arena Points
+  [PLAYER_V_PLAYER] = Expansion.Current >= Expansion.TBC and {
+    Expansion.Current <= Expansion.Wrath and 1900 or nil, -- Arena Points
     1901, -- Honor Points
-    390, -- Conquest Points
-  } ,
+    Expansion.Current >= Expansion.Cata and 390 or nil, -- Conquest Points
+  } or nil,
   -- Wrath of the Lich King
   [EXPANSION_NAME2] = Expansion.Current >= Expansion.Wrath and {
     61, -- Dalaran Jewelcrafter's Token
@@ -214,7 +196,7 @@ local modernClassicCurrencies = {
     3148, -- Fissure Stone Fragment
     3281, -- Obsidian Fragment
     Expansion.Current == Expansion.Cata and 402 or nil, -- Chef's Award (Moved to Ironpaw Token in Mists)
-  },
+  } or nil,
   -- Mists of Pandaria
   [EXPANSION_NAME4] = Expansion.Current >= Expansion.Mists and {
     3350, -- August Stone Fragment
@@ -246,12 +228,11 @@ local modernClassicCurrencies = {
     754, -- Mantid Archaeology Fragment
   } or nil,
 }
---- There is no designated currency api in classic. Any "currency" is just a bag item.
--- list of category names followed by currencyIds for that category
-local classicEraCurrencies = {
+--- Currencies whos data will be fetched from C_Items namespace APIs
+local itemBasedCurrencies = {
   -- Misc
   [BINDING_HEADER_MISC] = {
-    (SI.isSoD and 212160 or 184937), -- Chronoboon Displacer (SoD/Era specific)
+    Expansion.Current <= Expansion.TBC and (SI.isSoD and 212160 or 184937) or nil, -- Chronoboon Displacer (SoD/Era specific)
     (SI.isSoD and 226404 or nil), -- Tarnished Undermine Real (SoD currency)
   },
   -- Holiday Currency
@@ -286,6 +267,7 @@ local classicEraCurrencies = {
     20558, -- Warsong Gulch Mark of Honor
     20559, -- Arathi Basin Mark of Honor
     20560, -- Alterac Valley Mark of Honor
+    Expansion.Current >= Expansion.TBC and 29024 or nil, -- Eye of the Storm Mark of Honor
   },
   -- AQ Scarabs + Idols
   [DUNGEON_FLOOR_RUINSOFAHNQIRAJ1] = {
@@ -341,14 +323,71 @@ local classicEraCurrencies = {
     17333, -- Aqual Quintessence
     22754, -- Eternal Quintessence
   },
+
+  -- The Burning Crusade
+  -- todo: split in appropriate categories, might require settings ui refactor
+  [EXPANSION_NAME1] = {
+    29434, -- Badge of Justice
+    25433, -- Obsidian Warbeads
+    32897, -- Mark of the Illidari
+    28558, -- Spirit Shard
+
+    -- Hellfire Peninsula
+    24581, -- Mark of Tharllmar
+    24579, -- Mark of Honor Hold
+    -- Nagrand
+    26044, -- Halaa Research Token
+    26045, -- Halaa Battle Token
+    -- Blades Edge Mountains
+    32569, -- Apexis Shard
+    32572, -- Apexis Crystal
+
+    -- Scryers
+    25744, -- Dampscale Basilisk Eye
+    29426, -- Firewing Signet
+    30810, -- Sunfury Signet
+    29739, -- Arcane Tome
+    -- Aldor
+    25802, -- Dreadfang Venom Sac
+    29425, -- Mark of Kil'jaeden
+    30809, -- Mark of Sargeras
+    29740, -- Fel Armament
+    -- Lower City
+    25719, -- Arakkoa Feather
+    -- The Consortium
+    29209, -- Zaxxis Insignia
+    -- Cenarion Expendition
+    24401, -- Unidentified Plant Parts
+    24368, -- Coilfang Armaments
+  },
 }
-local classicEraCategories = {
+
+-- ordered list of currency categories
+-- order here is used for the category display order in the currency settings
+local currencyOrderedCategories = Expansion.Current >= Expansion.Wrath and {
   -- Misc.
   BINDING_HEADER_MISC,
+  -- PvP
+  PLAYER_V_PLAYER,
+  -- Wrath of the Lich King
+  EXPANSION_NAME2,
+  -- Cataclysm
+  EXPANSION_NAME3,
+  -- Mists of Pandaria
+  EXPANSION_NAME4,
+  -- Archaeology
+  PROFESSIONS_ARCHAEOLOGY,
+} or {
+  -- Misc.
+  BINDING_HEADER_MISC,
+  -- PvP
+  Expansion.Current >= Expansion.TBC and PLAYER_V_PLAYER or nil,
   -- Holiday Currencies
   CALENDAR_FILTER_WEEKLY_HOLIDAYS,
   -- Battleground Rewards
   BATTLEFIELDS,
+  -- TBC Currencies
+  Expansion.Current >= Expansion.TBC and EXPANSION_NAME1 or nil,
   -- Molten core currencies
   DUNGEON_FLOOR_MOLTENCORE1,
   -- ZG Coins + Bijous
@@ -362,38 +401,91 @@ local classicEraCategories = {
   -- Silithus Quests
   L["Silithus"],
 }
---Todo(classic): Scan tooltip for unique count and saved a copy of the tooltip for each currency to show on mouseover for the currency cell in the main addon frame
 
-local currencySorted = {} ---@type number[]
-local validCurrencies = {} ---@type number[]
-local categoryByCurrencyID = {}
-if not Module.IsUsingCurrencyAPI then
-  for categoryName, currencyItemIDs in ipairs(classicEraCurrencies) do
-    for _, currencyID in ipairs(currencyItemIDs) do
-      table.insert(validCurrencies, currencyID)
-      table.insert(currencySorted, currencyID)
-      categoryByCurrencyID[currencyID] = categoryName
+do -- defrag any nil'ed array entries
+  local defraged = {}
+  local sortIdx = {}
+  -- defrag currencyOrderedCategories
+  for idx, v in pairs(currencyOrderedCategories) do
+    if v then
+      table.insert(defraged, v)
+      sortIdx[v] = idx
     end
   end
-else
-  for category, currencyIDS in pairs(modernClassicCurrencies) do
-    for _, currencyID in ipairs(currencyIDS) do
-      if C_CurrencyInfo_GetCurrencyInfo(currencyID) then
-        table.insert(validCurrencies, currencyID)
-        table.insert(currencySorted, currencyID)
-        categoryByCurrencyID[currencyID] = category
+  table.sort(defraged, function(left, right)
+    return sortIdx[left] < sortIdx[right]
+  end)
+  currencyOrderedCategories = defraged
+  -- defrag internal currency lists
+  for _, currencyApiGroup in ipairs({ itemBasedCurrencies, apiBasedCurrencies }) do
+    for category, currencyList in pairs(currencyApiGroup) do
+      defraged = {}
+      sortIdx = {}
+      for idx, v in pairs(currencyList) do
+        if v then
+          table.insert(defraged, v)
+          sortIdx[v] = idx
+        end
       end
+      table.sort(defraged, function(left, right)
+        return sortIdx[left] < sortIdx[right]
+      end)
+      currencyApiGroup[category] = defraged
     end
   end
 end
-table.sort(currencySorted, function (c1, c2)
-  if not Module.IsUsingCurrencyAPI then
-    local c1_name = GetItemInfo(c1) or tostring(c1)
-    local c2_name = GetItemInfo(c2) or tostring(c2)
-    return c1_name < c2_name
+
+--Todo(classic): Scan tooltip for unique count and saved a copy of the tooltip for each currency to show on mouseover for the currency cell in the main addon frame
+
+---@alias currencyApiType "currency_api"|"item_api"
+local currencySorted = {} ---@type number[]
+local validCurrencies = {} ---@type number[]
+local categoryByCurrencyID = {}
+local apiTypeByCurrencyID = {} ---@type table<number, currencyApiType>
+
+for categoryName, currencyItemIDs in pairs(itemBasedCurrencies) do
+  for _, currencyID in ipairs(currencyItemIDs) do
+    table.insert(validCurrencies, currencyID)
+    table.insert(currencySorted, currencyID)
+    categoryByCurrencyID[currencyID] = categoryName
+    apiTypeByCurrencyID[currencyID] = "item_api"
   end
-  local c1_name = C_CurrencyInfo_GetCurrencyInfo(c1).name
-  local c2_name = C_CurrencyInfo_GetCurrencyInfo(c2).name
+end
+for category, currencyIDS in pairs(apiBasedCurrencies) do
+  for _, currencyID in ipairs(currencyIDS) do
+    if C_CurrencyInfo_GetCurrencyInfo(currencyID) then
+      table.insert(validCurrencies, currencyID)
+      table.insert(currencySorted, currencyID)
+      categoryByCurrencyID[currencyID] = category
+      apiTypeByCurrencyID[currencyID] = "currency_api"
+    end
+  end
+end
+
+table.sort(currencySorted, function (c1, c2)
+  local c1_name, c2_name
+  for i, c in ipairs({c1, c2}) do
+    if apiTypeByCurrencyID[c] == "item_api" then
+      local name = GetItemInfo(c)
+      if not name then
+        -- shouldn't happen, but just in case
+        return false
+      end
+      if i == 1 then
+        c1_name = name
+      else
+        c2_name = name
+      end
+    elseif apiTypeByCurrencyID[c] == "currency_api" then
+      local info = C_CurrencyInfo_GetCurrencyInfo(c)
+      if not info then return false end
+      if i == 1 then
+        c1_name = info.name
+      else
+        c2_name = info.name
+      end
+    else error("Unknown api type for currencyID " .. tostring(c)) end
+  end
   return c1_name < c2_name
 end)
 
@@ -494,6 +586,31 @@ function Module:OnEnable()
   self:RegisterEvent("BAG_UPDATE", function() Module:UpdateCurrencyItem() end)
 end
 
+---@param currencyID integer?
+---@return { name: string, icon: number, type: currencyApiType}?
+function Module:GetCurrencyInfo(currencyID)
+  if not currencyID then return end
+  local currencyType = apiTypeByCurrencyID[currencyID]
+  if currencyType == "item_api" then
+    local name = GetItemInfo(currencyID) or ("Item: "..currencyID)
+    local icon = GetItemIcon(currencyID)
+    return {
+      name = name,
+      icon = icon,
+      type = currencyType
+    }
+  elseif currencyType == "currency_api" then
+    local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
+    if not data then return end
+    return {
+      name = self.OverrideName[currencyID] or data.name,
+      icon = self.OverrideTexture[currencyID] or data.iconFileID,
+      type = currencyType
+    }
+  end
+  print("Warning: Unknown api type for currencyID " .. tostring(currencyID))
+end
+
 function Module:UpdatePlayerCurrencies()
   if SI.logout then return end -- currency is unreliable during logout
 
@@ -501,17 +618,15 @@ function Module:UpdatePlayerCurrencies()
   playerStore.Money = GetMoney()
   playerStore.currency = playerStore.currency or {}
 
-  if not Module.IsUsingCurrencyAPI then
-    for _, currencyItemID in ipairs(validCurrencies) do
+  for _, currencyID in ipairs(validCurrencies) do
+    if apiTypeByCurrencyID[currencyID] == "item_api" then
       ---@type SavedInstances.Toon.Currency
-      local currencyInfo = playerStore.currency[currencyItemID] or {}
-      currencyInfo.amount = GetItemCount(currencyItemID, true)
-      currencyInfo.relatedItemCount = GetItemCount(currencyItemID, true)
-      playerStore.currency[currencyItemID] = currencyInfo
-    end
-  else
-    local covenantID = C_Covenants_GetActiveCovenantID and C_Covenants_GetActiveCovenantID()
-    for _,currencyID in ipairs(validCurrencies) do
+      local currencyInfo = playerStore.currency[currencyID] or {}
+      currencyInfo.amount = GetItemCount(currencyID, true)
+      currencyInfo.relatedItemCount = GetItemCount(currencyID, true)
+      playerStore.currency[currencyID] = currencyInfo
+    elseif apiTypeByCurrencyID[currencyID] == "currency_api" then
+      local covenantID = C_Covenants_GetActiveCovenantID and C_Covenants_GetActiveCovenantID()
       local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
       if not data
       or (not data.discovered and not hiddenCurrency[currencyID])
@@ -626,12 +741,41 @@ function Module:ParseCurrencyItemTooltip(itemID)
   return tooltipInfo
 end
 
+-- merges two tables of currency categories
+local function mergeCurrencySets(t1, t2)
+  local result = {}
+  -- copy t1
+  for k, v in pairs(t1) do
+    if type(v) == "table" then
+      result[k] = {}
+      for _, currencyID in ipairs(v) do
+        table.insert(result[k], currencyID)
+      end
+    else
+      result[k] = v
+    end
+  end
+  -- merge t2
+  for k, v in pairs(t2) do
+    if type(v) == "table" and type(result[k]) == "table" then
+      -- both have arrays for this category, append t2's currencies to result
+      for _, currencyID in ipairs(v) do
+        table.insert(result[k], currencyID)
+      end
+    else
+      result[k] = v
+    end
+  end
+  return result
+end
+
 ---@return fun():integer?, {name: string, currencies: number[]}?
 function Module:IterateCategories()
   local i = 0
   local categoryInfo = {}
-  local currencyTable = Module.IsUsingCurrencyAPI and modernClassicCurrencies or classicEraCurrencies
-  local orderedCategories = Module.IsUsingCurrencyAPI and orderedCategories or classicEraCategories
+  -- todo perf: cache this merged table if the currency lists don't change
+  local currencyTable = mergeCurrencySets(apiBasedCurrencies, itemBasedCurrencies)
+  local orderedCategories = currencyOrderedCategories
   return function()
     i = i + 1
     if i > #orderedCategories then
@@ -642,6 +786,8 @@ function Module:IterateCategories()
       name = categoryName,
       currencies = currencyTable[categoryName],
     }
+    assert(categoryInfo.name, "Category name not found for index. check `orderedCategories` table @ "..tostring(i))
+    assert(categoryInfo.currencies, "Currency list not found for category "..tostring(categoryInfo.name))
     return i, categoryInfo
   end
 end

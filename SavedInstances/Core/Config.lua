@@ -1170,13 +1170,10 @@ function Config:BuildAceConfigOptions()
     for _, currencyID in ipairs(category.currencies) do
       local name
       local icon ---@type string|number?
-      if not Currency.IsUsingCurrencyAPI then
-        icon = GetItemIcon(currencyID)
-        name = GetItemInfo(currencyID) or ("Item: "..currencyID)
-      else
-        local data = C_CurrencyInfo_GetCurrencyInfo(currencyID)
-        name = Currency.OverrideName[currencyID] or data.name
-        icon = Currency.OverrideTexture[currencyID] or data.iconFileID
+      local info = Currency:GetCurrencyInfo(currencyID)
+      if info then
+        name = info.name
+        icon = info.icon
       end
       if name and icon then
         optionOrderIdx = optionOrderIdx + 1

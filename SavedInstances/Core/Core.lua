@@ -3201,9 +3201,10 @@ hoverTooltip.ShowCurrencyTooltip = function (cell, arg, ...)
   local toon, currencyID, currencyInfo = unpack(arg)
   if not (toon and currencyID and currencyInfo) then return end
   local info;
+  local moduleInfo = Currency:GetCurrencyInfo(currencyID)
 
   -- only classic era has no Currency/Token system.
-  if SI.isClassicEra then
+  if moduleInfo and moduleInfo.type == "item_api" then
     local description = ""
     local _, itemLink = GetItemInfo(currencyID)
     -- GameTooltip_SetBasicTooltip(SI.ScanTooltip, " ")  
@@ -3314,14 +3315,10 @@ hoverTooltip.ShowCurrencySummary = function (cell, arg, ...)
 
   -- SI:Debug("ShowCurrencySummary", currencyID)
   local name, icon;
-  if not Currency.IsUsingCurrencyAPI then
-    -- currencies are items 
-    icon = GetItemIcon(currencyID)
-    name = GetItemInfo(currencyID)
-  else
-    local data = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-    icon = Currency.OverrideTexture[currencyID] or data.iconFileID
-    name = Currency.OverrideName[currencyID] or data.name
+  local info = Currency:GetCurrencyInfo(currencyID)
+  if info then
+    name = info.name
+    icon = info.icon
   end
   icon = " \124T"..icon..":0\124t"
 
@@ -5638,16 +5635,14 @@ function SI:ShowTooltip(anchor)
       for charKey, charStore in cpairs(SI.db.Toons, true) do
         -- ci.name, ci.amount, ci.earnedThisWeek, ci.weeklyMax, ci.totalMax, ci.relatedItemCount
         ---@type SavedInstances.Toon.Currency
-        local currencyInfo = charStore.currency 
-          and charStore.currency[currencyID];
-        
-        if currencyInfo then
-          local hasWeeklyCurrencyProgress = ((currencyInfo.earnedThisWeek or 0) > 0)
-            and ((currencyInfo.weeklyMax or 0) > 0);
-          
-          local hasCurrency = ((currencyInfo.relatedItemCount or 0) > 0) 
-            or ((currencyInfo.amount or 0) > 0);
-          
+        local currencyStoreInfo = charStore.currency and charStore.currency[currencyID];
+
+        if currencyStoreInfo then
+          local hasWeeklyCurrencyProgress
+            = ((currencyStoreInfo.earnedThisWeek or 0) > 0) and ((currencyStoreInfo.weeklyMax or 0) > 0);
+          local hasCurrency
+            = ((currencyStoreInfo.relatedItemCount or 0) > 0) or ((currencyStoreInfo.amount or 0) > 0);
+
           -- allocate column for a character to show currency info in tooltip
           -- any weekly currencies will force create a column
           -- any currency will create a column if the user has chosen to show all currencies
@@ -5664,16 +5659,8 @@ function SI:ShowTooltip(anchor)
           and (hasWeeklyCurrencyProgress or hasCurrency) 
           and characterColumns[charKey .. 1] 
           then
-            local name, icon;
-            if SI.isClassicEra then
-              icon = GetItemIcon(currencyID)
-              name = GetItemInfo(currencyID)
-            else
-              local data = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-              name = Currency.OverrideName[currencyID] or data.name
-              icon = Currency.OverrideTexture[currencyID] or data.iconFileID
-            end
-            currencyRowLabel = format(" \124T%s:0\124t%s", icon or "134400", name or "")
+            local info = Currency:GetCurrencyInfo(currencyID) or {}
+            currencyRowLabel = format(" \124T%s:0\124t%s", info.icon or "134400", info.name or "")
           end
         end
       end

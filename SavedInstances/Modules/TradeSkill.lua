@@ -94,6 +94,9 @@ local trackedTradeCrafts = {
   [28580] = "xmute", -- Transmute: Primal Shadow to Water
   [28569] = "xmute", -- Transmute: Primal Water to Air
   [28581] = "xmute", -- Transmute: Primal Water to Shadow
+  [29688] = "xmute", -- Transmute: Primal Might
+  [32765] = "xmute", -- Transmute: Earthstorm Diamond
+  [32766] = "xmute", -- Transmute: Skyfire Diamond
 
   -- WotLK
   [60893] = 3,       -- Northrend Alchemy Research: 3 days
@@ -177,7 +180,6 @@ local trackedTradeCrafts = {
   [370747] = "dragonflightexper", -- Advanced Phial Experimentation
 
   -- Enchanting
-  [18560] = true, -- Mooncloth
   [28027]  = "sphere", -- Prismatic Sphere (2-day shared, 5.2.0 verified)
   [28028]  = "sphere", -- Void Sphere (2-day shared, 5.2.0 verified)
   [116499] = true,     -- Sha Crystal
@@ -204,6 +206,13 @@ local trackedTradeCrafts = {
   [374551] = true,    -- Jeweled Dragon's Heart
 
   -- Tailoring
+  -- Vanilla
+  [18560] = true, -- Mooncloth
+  -- Burning Crusade
+  [26751] = true, -- Primal Mooncloth
+  [31373] = true, -- Spellcloth
+  [36686] = true, -- Shadowcloth
+
   [75141] = 7,     -- Dream of Skywall
   [75145] = 7,     -- Dream of Ragnaros
   [75144] = 7,     -- Dream of Hyjal

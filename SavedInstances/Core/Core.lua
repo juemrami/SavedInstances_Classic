@@ -1866,15 +1866,14 @@ function SI:UpsertInstanceByDungeonID(dungeonID)
 
   -- the following code seems like it should be in the db compatability. Kept it coz unsure if its needed.
   -- Recomended levels for instances stored in saved variables should only be updated when there are level squishes or the dungeonID is changed.
-  local savedInfo = SI.db.Instances[lfgName] 
+  local savedInfo = SI.db.Instances[lfgName]
   if not savedInfo.RecLevel or savedInfo.RecLevel < 1 then savedInfo.RecLevel = recLevel end
-  if recLevel > 0 and recLevel < savedInfo.RecLevel then savedInfo.RecLevel = recLevel end -- favor non-heroic RecLevel (why do we care about rec level? for sorting the instances based on reccomended level)
-  
-  --upsert fields
+  -- favor non-heroic RecLevel. used for sorting the instances based on reccomended level
+  if recLevel > 0 and recLevel < savedInfo.RecLevel then savedInfo.RecLevel = recLevel end
+
+  -- Validate saved info fields and types
   for field, value in pairs(instanceInfo) do
-    if type(value) ~= nil 
-      and (not savedInfo[field] or type(savedInfo[field] ~= type(value))) 
-    then
+    if not savedInfo[field] or (type(savedInfo[field]) ~= type(value)) then
       ---@diagnostic disable-next-line: assign-type-mismatch
       savedInfo[field] = value
     end
@@ -1928,8 +1927,8 @@ function SI:UpdateToonData()
     and instancesStore[name].Holiday 
     then
       -- id used in timewalking item quest, name used later this function
-      SI.activeHolidays[lfgDungeonID] = true
       SI.activeHolidays[name] = true
+      SI.activeHolidays[lfgDungeonID] = true
     end
   end
 
